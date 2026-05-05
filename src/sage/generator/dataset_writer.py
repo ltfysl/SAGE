@@ -161,6 +161,118 @@ class DatasetWriter:
         else:
             return "long"
 
+    def generate_adversarial_benchmark(self, num_samples: int = 500,
+                                        output_path: Path | None = None) -> Path:
+        """Generate an adversarial benchmark with misleading non-event sentences.
+
+        Interleaves real state-changing events (~70%) with misleading non-events (~30%)
+        that the rule compiler must ignore. The ground-truth ops only include real events.
+        """
+        import random as _random
+        from sage.generator.names import NAMES, OBJECT_TYPES, get_singular
+
+        rng = _random.Random(42)
+
+        pronouns = {"male": "his", "female": "her"}
+        default_pronoun = "their"
+
+        ADVERSARIAL_TEMPLATES = [
+            "{person} almost gives {amount} {obj} to {other}, but changes {pronoun} mind.",
+            "{person} wanted to give {amount} {obj} to {other}, but did not.",
+            "{person} planned to give {amount} {obj} to {other}, but never did.",
+            "{person} intended to spend {amount} {obj}, but kept them.",
+            "{person} almost lost {amount} {obj}, but found them again.",
+            "{person} hoped to find {amount} {obj}, but didn't.",
+            "{person} says {pronoun} has {amount} {obj}, but actually has {real_amount}.",
+            "{person} claims to have {amount} {obj}, but really has {real_amount}.",
+            "{person} tried to give {amount} {obj} to {other}, but couldn't.",
+            "{person} gives {amount} {obj} to {other}, not to {third_person}.",
+            "{person} thought about spending {amount} {obj}, but saved them instead.",
+            "{person} nearly dropped {amount} {obj}, but caught them.",
+            "{person} wished {pronoun} had {amount} {obj}, but didn't get any.",
+        ]
+
+        if output_path is None:
+            output_path = Path("data/benchmarks/adversarial.jsonl")
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        records = []
+        gen = self.generator
+        gen.set_seed(99)
+
+        for i in range(num_samples):
+            # Generate a real story with 5-15 events
+            num_real_events = rng.randint(5, 15)
+            story = gen.generate_story(num_real_events)
+
+            # Extract people names from sentences (capitalized words)
+            import re as _re
+            all_text = " ".join(story.sentences)
+            story_people = list(set(_re.findall(r'\b([A-Z][a-z]+)\b', all_text)))
+            if not story_people:
+                story_people = rng.sample(NAMES, min(3, len(NAMES)))
+
+            real_sentences = list(story.sentences)
+            question = real_sentences[-1]  # Question is last
+            real_body = real_sentences[:-1]
+
+            # Generate ~30% misleading sentences
+            num_misleading = max(1, int(len(real_body) * 0.3))
+            misleading_sents = []
+            for _ in range(num_misleading):
+                tmpl = rng.choice(ADVERSARIAL_TEMPLATES)
+                person = rng.choice(story_people)
+                others = [p for p in story_people if p != person]
+                other = rng.choice(others) if others else rng.choice(NAMES)
+                third_candidates = [p for p in story_people if p not in (person, other)]
+                third = rng.choice(third_candidates) if third_candidates else rng.choice(NAMES)
+                amount = rng.randint(1, 10)
+                real_amount = rng.randint(1, 20)
+                # Extract objects from ops targets
+                story_objs = list(set(
+                    op["target"].split(".", 1)[1] if "target" in op and "." in op.get("target", "") else ""
+                    for op in story.ops
+                ))
+                story_objs = [o for o in story_objs if o]
+                obj = rng.choice(story_objs) if story_objs else rng.choice(OBJECT_TYPES)
+                singular = get_singular(obj)
+                obj_form = singular if amount == 1 else obj
+                pronoun = default_pronoun
+
+                sent = tmpl.format(person=person, amount=amount, obj=obj_form,
+                                   other=other, third_person=third,
+                                   real_amount=real_amount, pronoun=pronoun)
+                misleading_sents.append(sent)
+
+            # Interleave: insert misleading sentences at random positions
+            all_body = list(real_body)
+            for ms in misleading_sents:
+                pos = rng.randint(0, len(all_body))
+                all_body.insert(pos, ms)
+
+            full_text = " ".join(all_body + [question])
+
+            difficulty = "adversarial"
+            record = {
+                "id": f"adv_{i:06d}",
+                "story": full_text,
+                "ops": story.ops,
+                "answer": str(story.answer),
+                "metadata": {
+                    "num_events": story.num_events + num_misleading,
+                    "num_people": story.num_people,
+                    "num_objects": story.num_objects,
+                    "noise_level": 0.3,
+                    "difficulty": difficulty,
+                    "misleading_count": num_misleading,
+                },
+            }
+            records.append(record)
+
+        self._write_jsonl(output_path, records)
+        return output_path
+
     def generate_benchmarks(self, benchmarks_dir: Path):
         """Generate all standard benchmark files."""
         configs = [

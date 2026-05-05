@@ -1,9 +1,4 @@
-"""Evaluation metrics for SAGE.
-
-Computes accuracy, validity, and execution rates for compiled outputs
-and direct answers. All functions accept standard Python types so they
-are easy to compose with benchmark result dicts.
-"""
+"""Evaluation metrics for SAGE — with evidence and event-bucket support."""
 
 from __future__ import annotations
 
@@ -16,37 +11,16 @@ from sage.config import EngineConfig
 
 
 def exact_match(predicted: str, ground_truth: str) -> bool:
-    """Check if predicted answer exactly matches ground truth."""
     return str(predicted).strip() == str(ground_truth).strip()
 
 
 def answer_accuracy(predictions: list[str], ground_truths: list[str]) -> float:
-    """Compute exact match accuracy across a batch.
-
-    Args:
-        predictions: List of predicted answer strings.
-        ground_truths: List of ground-truth answer strings (same length).
-
-    Returns:
-        Accuracy as a float in [0.0, 1.0].
-    """
     if not predictions:
         return 0.0
-    correct = sum(
-        1 for p, g in zip(predictions, ground_truths) if exact_match(p, g)
-    )
-    return correct / len(predictions)
+    return sum(1 for p, g in zip(predictions, ground_truths) if exact_match(p, g)) / len(predictions)
 
 
 def json_valid_rate(compiled_outputs: list[str]) -> float:
-    """Rate of outputs that are valid JSON arrays.
-
-    Args:
-        compiled_outputs: Raw string outputs from a compiler.
-
-    Returns:
-        Fraction of outputs that parse as valid JSON arrays.
-    """
     if not compiled_outputs:
         return 0.0
     valid = 0
@@ -61,17 +35,6 @@ def json_valid_rate(compiled_outputs: list[str]) -> float:
 
 
 def ops_valid_rate(compiled_outputs: list[str]) -> float:
-    """Rate of outputs whose operations pass schema validation.
-
-    Uses ``sage.verifier.Verifier`` to validate each output against the
-    SAGE operation schema.
-
-    Args:
-        compiled_outputs: Raw string outputs from a compiler.
-
-    Returns:
-        Fraction of outputs with fully valid operation sequences.
-    """
     if not compiled_outputs:
         return 0.0
     verifier = Verifier()
@@ -83,117 +46,118 @@ def ops_valid_rate(compiled_outputs: list[str]) -> float:
     return valid / len(compiled_outputs)
 
 
-def execution_success_rate(
-    compiled_outputs: list[str], executor: Executor | None = None
-) -> float:
-    """Rate of outputs that execute without errors.
-
-    Each output is verified and then executed against a fresh state store.
-
-    Args:
-        compiled_outputs: Raw string outputs from a compiler.
-        executor: Optional pre-configured ``Executor``.  Created fresh
-            when omitted.
-
-    Returns:
-        Fraction of outputs that execute successfully.
-    """
-    if not compiled_outputs:
+def evidence_valid_rate(results: list[dict]) -> float:
+    """Rate of results where evidence checks passed."""
+    if not results:
         return 0.0
-    if executor is None:
-        executor = Executor(EngineConfig())
-    verifier = Verifier()
-    success = 0
-    for raw in compiled_outputs:
-        ops, _ = verifier.verify(raw)
-        if ops is None:
-            continue
-        result = executor.execute(ops)
-        if result.valid and result.error is None:
-            success += 1
-    return success / len(compiled_outputs)
+    valid = sum(1 for r in results if r.get("evidence_valid", False))
+    return valid / len(results)
+
+
+def execution_success_rate(results: list[dict]) -> float:
+    if not results:
+        return 0.0
+    success = sum(1 for r in results if r.get("execution_success", False))
+    return success / len(results)
+
+
+def unsupported_operation_rate(results: list[dict]) -> float:
+    """Rate of ground-truth ops that the compiler failed to compile (missing)."""
+    total_gt = 0
+    total_missing = 0
+    for r in results:
+        gt = r.get("ground_truth_ops", [])
+        missing = r.get("missing_ops", [])
+        total_gt += len(gt)
+        total_missing += len(missing)
+    return total_missing / total_gt if total_gt > 0 else 0.0
+
+
+def hallucinated_operation_rate(results: list[dict]) -> float:
+    """Rate of compiled ops that don't correspond to ground truth (extra)."""
+    total_comp = 0
+    total_extra = 0
+    for r in results:
+        comp = r.get("compiled_ops_raw", [])
+        extra = r.get("extra_ops", [])
+        total_comp += len(comp)
+        total_extra += len(extra)
+    return total_extra / total_comp if total_comp > 0 else 0.0
+
+
+def accuracy_by_event_buckets(results: list[dict]) -> dict:
+    """Group accuracy by event count buckets."""
+    buckets = {
+        "1-5": [], "6-25": [], "26-100": [], "101-500": [],
+    }
+    for r in results:
+        n = r.get("num_events", 0)
+        match = r.get("answer_match", False)
+        if n <= 5:
+            buckets["1-5"].append(match)
+        elif n <= 25:
+            buckets["6-25"].append(match)
+        elif n <= 100:
+            buckets["26-100"].append(match)
+        else:
+            buckets["101-500"].append(match)
+    return {
+        bucket: {
+            "samples": len(matches),
+            "accuracy": sum(matches) / len(matches) if matches else 0.0,
+        }
+        for bucket, matches in buckets.items()
+    }
 
 
 def compute_all_metrics(results: list[dict[str, Any]]) -> dict[str, Any]:
-    """Compute every evaluation metric from a list of per-sample result dicts.
-
-    Expected keys per dict::
-
-        id                     – unique sample identifier
-        ground_truth_answer    – expected answer string
-        predicted_answer       – system-produced answer string
-        compiled_output        – raw compiler output (JSON string)
-        execution_success      – bool, did execution succeed
-        valid_json             – bool, is output valid JSON
-        valid_ops              – bool, are the ops schema-valid
-        num_events             – number of events in the input
-        noise_level            – noise level used (0.0 – 1.0)
-        latency_ms             – compilation latency in ms
-        tokens_in              – input token count (or None)
-        tokens_out             – output token count (or None)
-
-    Returns a dict with per-system aggregate metrics keyed by system name,
-    plus an ``"overall"`` entry with dataset-wide sums and averages.
-    """
+    """Compute all metrics from per-sample result dicts."""
     if not results:
         return {}
 
-    # Group results by system
-    by_system: dict[str, list[dict[str, Any]]] = {}
+    by_system: dict[str, list[dict]] = {}
     for r in results:
-        system = r.get("system", "unknown")
-        by_system.setdefault(system, []).append(r)
+        by_system.setdefault(r.get("system", "unknown"), []).append(r)
 
     metrics: dict[str, Any] = {}
-    total_samples = len(results)
-
     for system, samples in by_system.items():
         n = len(samples)
         predictions = [str(s.get("predicted_answer", "")) for s in samples]
         ground_truths = [str(s.get("ground_truth_answer", "")) for s in samples]
         compiled_outputs = [str(s.get("compiled_output", "")) for s in samples]
-
         latencies = [s.get("latency_ms", 0.0) or 0.0 for s in samples]
-        exec_success = sum(1 for s in samples if s.get("execution_success"))
-        json_ok = sum(1 for s in samples if s.get("valid_json"))
-        ops_ok = sum(1 for s in samples if s.get("valid_ops"))
-        tokens_in = [s.get("tokens_in") for s in samples if s.get("tokens_in") is not None]
-        tokens_out = [s.get("tokens_out") for s in samples if s.get("tokens_out") is not None]
+        events = [s.get("num_events", 0) for s in samples]
 
         metrics[system] = {
             "num_samples": n,
             "accuracy": answer_accuracy(predictions, ground_truths),
-            "json_valid_rate": json_ok / n if n else 0.0,
-            "ops_valid_rate": ops_ok / n if n else 0.0,
-            "execution_success_rate": exec_success / n if n else 0.0,
+            "json_valid_rate": json_valid_rate(compiled_outputs),
+            "ops_valid_rate": ops_valid_rate(compiled_outputs),
+            "evidence_valid_rate": evidence_valid_rate(samples),
+            "execution_success_rate": execution_success_rate(samples),
+            "unsupported_operation_rate": unsupported_operation_rate(samples),
+            "hallucinated_operation_rate": hallucinated_operation_rate(samples),
+            "avg_events": sum(events) / n if n else 0,
             "avg_latency_ms": sum(latencies) / n if n else 0.0,
-            "total_tokens_in": sum(tokens_in),
-            "total_tokens_out": sum(tokens_out),
-            "avg_tokens_in": sum(tokens_in) / len(tokens_in) if tokens_in else None,
-            "avg_tokens_out": sum(tokens_out) / len(tokens_out) if tokens_out else None,
         }
 
     # Overall
-    all_predictions = [str(r.get("predicted_answer", "")) for r in results]
-    all_ground_truths = [str(r.get("ground_truth_answer", "")) for r in results]
-    all_latencies = [r.get("latency_ms", 0.0) or 0.0 for r in results]
-    all_exec_ok = sum(1 for r in results if r.get("execution_success"))
-    all_json_ok = sum(1 for r in results if r.get("valid_json"))
-    all_ops_ok = sum(1 for r in results if r.get("valid_ops"))
-    all_tokens_in = [r.get("tokens_in") for r in results if r.get("tokens_in") is not None]
-    all_tokens_out = [r.get("tokens_out") for r in results if r.get("tokens_out") is not None]
-
+    all_pred = [str(r.get("predicted_answer", "")) for r in results]
+    all_gt = [str(r.get("ground_truth_answer", "")) for r in results]
+    all_comp = [str(r.get("compiled_output", "")) for r in results]
+    all_lat = [r.get("latency_ms", 0.0) or 0.0 for r in results]
+    all_events = [r.get("num_events", 0) for r in results]
     metrics["overall"] = {
-        "num_samples": total_samples,
-        "accuracy": answer_accuracy(all_predictions, all_ground_truths),
-        "json_valid_rate": all_json_ok / total_samples if total_samples else 0.0,
-        "ops_valid_rate": all_ops_ok / total_samples if total_samples else 0.0,
-        "execution_success_rate": all_exec_ok / total_samples if total_samples else 0.0,
-        "avg_latency_ms": sum(all_latencies) / total_samples if total_samples else 0.0,
-        "total_tokens_in": sum(all_tokens_in),
-        "total_tokens_out": sum(all_tokens_out),
-        "avg_tokens_in": sum(all_tokens_in) / len(all_tokens_in) if all_tokens_in else None,
-        "avg_tokens_out": sum(all_tokens_out) / len(all_tokens_out) if all_tokens_out else None,
+        "num_samples": len(results),
+        "accuracy": answer_accuracy(all_pred, all_gt),
+        "json_valid_rate": json_valid_rate(all_comp),
+        "ops_valid_rate": ops_valid_rate(all_comp),
+        "evidence_valid_rate": evidence_valid_rate(results),
+        "execution_success_rate": execution_success_rate(results),
+        "unsupported_operation_rate": unsupported_operation_rate(results),
+        "hallucinated_operation_rate": hallucinated_operation_rate(results),
+        "avg_events": sum(all_events) / len(results) if results else 0,
+        "avg_latency_ms": sum(all_lat) / len(results) if results else 0.0,
     }
 
     return metrics

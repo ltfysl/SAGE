@@ -294,6 +294,59 @@ def demo_cmd(
             console.print(f"\n[dim]Direct baseline unavailable: {e}[/]")
 
 
+# ── eval-oracle ──────────────────────────────────────────────────
+
+@app.command("eval-oracle")
+def eval_oracle_cmd(
+    benchmark: Path = typer.Option(..., "--benchmark", "-b", help="Path to benchmark JSONL"),
+    max_samples: int = typer.Option(100, "--max-samples", "-n", help="Max samples"),
+):
+    """Evaluate using ground-truth ops directly (oracle SAGE). Should be ~100%."""
+    from sage.eval.run_benchmark import run_oracle
+
+    console.print(f"[bold blue]SAGE Oracle Eval[/]")
+    console.print(f"  Benchmark: {benchmark}")
+
+    results = run_oracle(benchmark, max_samples)
+
+    from sage.eval.report import print_report
+    print_report(results)
+
+
+# ── inspect-failures ─────────────────────────────────────────────
+
+@app.command("inspect-failures")
+def inspect_failures_cmd(
+    file: Path = typer.Option(..., "--file", "-f", help="Path to failures JSONL"),
+    limit: int = typer.Option(20, "--limit", "-n", help="Max failures to show"),
+):
+    """Print readable failure examples from a failures JSONL file."""
+    import json as _json
+
+    if not file.exists():
+        console.print(f"[red]File not found: {file}[/]")
+        raise typer.Exit(1)
+
+    with open(file) as fh:
+        lines = fh.readlines()[:limit]
+
+    console.print(f"[bold]Failure Inspection[/] — {file} ([dim]{len(lines)} shown[/])")
+    for i, line in enumerate(lines):
+        rec = _json.loads(line)
+        console.print()
+        console.print(f"[bold cyan]#{i+1}[/] [yellow]{rec.get('id', '?')}[/] "
+                      f"reason=[red]{rec.get('failure_reason', '?')}[/]")
+        console.print(f"  Expected: [green]{rec.get('ground_truth_answer', '?')}[/]  "
+                      f"Got: [red]{rec.get('predicted_answer', '?')}[/]")
+        console.print(f"  Story: {rec.get('story', '')[:200]}...")
+        miss = rec.get("missing_ops", [])
+        extra = rec.get("extra_ops", [])
+        if miss:
+            console.print(f"  [red]Missing ops ({len(miss)}):[/] {[o.get('op') for o in miss]}")
+        if extra:
+            console.print(f"  [yellow]Extra ops ({len(extra)}):[/] {[o.get('op') for o in extra]}")
+
+
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")

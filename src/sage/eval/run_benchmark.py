@@ -1,11 +1,6 @@
-"""Benchmark runner for SAGE.
+"""Benchmark runner for SAGE — with oracle eval, failure diagnostics, and evidence tracking.
 
-Evaluates every system (rule compiler, model compiler, direct-answer
-baseline, heuristic baseline) on a JSONL benchmark file and returns
-per-sample results plus aggregate metrics.
-
-Systems that are not installed are silently skipped so the runner is
-usable even when optional dependencies are missing.
+Evaluates every system on JSONL benchmark files.
 """
 
 from __future__ import annotations
@@ -20,333 +15,140 @@ from sage.config import EvalConfig, EngineConfig
 from sage.engine.executor import Executor
 from sage.verifier.verifier import Verifier
 from sage.renderer.renderer import Renderer
-from sage.eval.metrics import compute_all_metrics
+from sage.schemas.ops import Operation, OpType
 
 logger = logging.getLogger(__name__)
 
-
-# ── optional compiler / baseline imports ──────────────────────────────
+# ── Optional imports ──────────────────────────────────────────────
 
 _RuleCompiler = None
-_ModelCompiler = None
-_DirectAnswerModel = None
-_HeuristicBaseline = None
-
 try:
     from sage.compiler.rule_compiler import RuleCompiler as _RC
     _RuleCompiler = _RC
 except ImportError:
-    logger.debug("sage.compiler.rule_compiler not available")
+    pass
 
-try:
-    from sage.compiler.model_compiler import ModelCompiler as _MC
-    _ModelCompiler = _MC
-except ImportError:
-    logger.debug("sage.compiler.model_compiler not available")
-
-try:
-    from sage.baselines.direct_answer_model import DirectAnswerModel as _DAM
-    _DirectAnswerModel = _DAM
-except ImportError:
-    logger.debug("sage.baselines.direct_answer_model not available")
-
+_HeuristicBaseline = None
 try:
     from sage.baselines.heuristic_baseline import HeuristicBaseline as _HB
     _HeuristicBaseline = _HB
 except ImportError:
-    logger.debug("sage.baselines.heuristic_baseline not available")
+    pass
 
 
-# ── helpers ────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────
 
 def _load_benchmark(path: Path) -> list[dict[str, Any]]:
-    """Load a JSONL benchmark file into a list of dicts."""
-    samples: list[dict[str, Any]] = []
+    samples = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
-            if not line:
-                continue
-            samples.append(json.loads(line))
+            if line:
+                samples.append(json.loads(line))
     return samples
 
 
-def _run_sage_pipeline(
-    story: str,
-    compiler: Any,
-    verifier: Verifier,
-    executor: Executor,
-    renderer: Renderer,
-) -> dict[str, Any]:
-    """Run the full SAGE pipeline: compile → verify → execute → render.
-
-    Returns a result dict suitable for ``compute_all_metrics``.
-    """
-    t0 = time.perf_counter()
-
-    # Compile
-    compiled_output = ""
-    try:
-        raw_result = compiler.compile(story)
-        # Rule compiler returns (list[dict], bool); model compiler returns str
-        if isinstance(raw_result, tuple):
-            ops_list, success = raw_result
-            compiled_output = json.dumps(ops_list) if success else ""
-        else:
-            compiled_output = str(raw_result)
-    except Exception as exc:
-        logger.warning("Compilation failed: %s", exc)
-        compiled_output = ""
-
-    # Verify
-    ops, vr = verifier.verify(compiled_output)
-
-    # Execute (only when ops are valid)
-    exec_result = None
-    execution_success = False
-    if ops is not None:
-        exec_result = executor.execute(ops)
-        execution_success = exec_result.valid and exec_result.error is None
-
-    # Render answer (raw numeric for evaluation matching)
-    predicted_answer = ""
-    if exec_result is not None and execution_success:
-        predicted_answer = renderer.render_raw(exec_result)
-    elif ops is not None and exec_result is not None:
-        # Execution failed — still try to extract answer
-        predicted_answer = renderer.render_raw(exec_result)
-
-    latency_ms = (time.perf_counter() - t0) * 1000.0
-
-    return {
-        "compiled_output": compiled_output,
-        "predicted_answer": predicted_answer,
-        "execution_success": execution_success,
-        "valid_json": vr.valid_json,
-        "valid_ops": vr.valid_ops,
-        "latency_ms": latency_ms,
-        "tokens_in": None,
-        "tokens_out": None,
-    }
+def _ops_dicts_to_operations(op_dicts: list[dict]) -> list[Operation]:
+    """Convert raw op dicts to Operation objects."""
+    ops = []
+    for d in op_dicts:
+        dc = dict(d)
+        if "from" in dc:
+            dc["from_target"] = dc.pop("from")
+        if "to" in dc:
+            dc["to_target"] = dc.pop("to")
+        try:
+            ops.append(Operation(**dc))
+        except Exception:
+            pass
+    return ops
 
 
-def _run_direct_baseline(
-    story: str,
-    model: Any,
-) -> dict[str, Any]:
-    """Run the direct-answer baseline.
-
-    Returns a result dict suitable for ``compute_all_metrics``.
-    """
-    t0 = time.perf_counter()
-    try:
-        predicted_answer = model.answer(story)
-    except Exception as exc:
-        logger.warning("Direct baseline failed: %s", exc)
-        predicted_answer = ""
-    latency_ms = (time.perf_counter() - t0) * 1000.0
-
-    return {
-        "compiled_output": "",
-        "predicted_answer": str(predicted_answer),
-        "execution_success": False,  # not applicable for direct baselines
-        "valid_json": False,
-        "valid_ops": False,
-        "latency_ms": latency_ms,
-        "tokens_in": None,
-        "tokens_out": None,
-    }
+def _compute_diff(gt_ops: list[dict], comp_ops: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Compute missing and extra ops by (op+target+value) matching."""
+    def key(op):
+        return (op.get("op"), op.get("target") or op.get("from", ""),
+                op.get("value"))
+    gt_keys = {key(o) for o in gt_ops}
+    comp_keys = {key(o) for o in comp_ops}
+    missing = [o for o in gt_ops if key(o) not in comp_keys]
+    extra = [o for o in comp_ops if key(o) not in gt_keys]
+    return missing, extra
 
 
-def _run_heuristic_baseline(
-    story: str,
-    baseline: Any,
-) -> dict[str, Any]:
-    """Run the heuristic baseline.
+def _save_failures(results: list[dict], benchmark_path: Path):
+    """Save failed samples to data/reports/failures_{difficulty}.jsonl."""
+    out_dir = Path("data/reports")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    difficulty = benchmark_path.stem  # e.g., "easy"
+    out_path = out_dir / f"failures_{difficulty}.jsonl"
 
-    Returns a result dict suitable for ``compute_all_metrics``.
-    """
-    t0 = time.perf_counter()
-    try:
-        predicted_answer = baseline.answer(story)
-    except Exception as exc:
-        logger.warning("Heuristic baseline failed: %s", exc)
-        predicted_answer = ""
-    latency_ms = (time.perf_counter() - t0) * 1000.0
-
-    return {
-        "compiled_output": "",
-        "predicted_answer": str(predicted_answer),
-        "execution_success": False,
-        "valid_json": False,
-        "valid_ops": False,
-        "latency_ms": latency_ms,
-        "tokens_in": None,
-        "tokens_out": None,
-    }
+    failures = [r for r in results if not r.get("answer_match", False)]
+    with open(out_path, "w", encoding="utf-8") as f:
+        for failure in failures:
+            f.write(json.dumps(failure, ensure_ascii=False) + "\n")
+    logger.info(f"Saved {len(failures)} failures to {out_path}")
 
 
-# ── public API ─────────────────────────────────────────────────────────
+# ── Oracle eval ───────────────────────────────────────────────────
 
-def run_benchmark(
-    benchmark_path: Path, config: EvalConfig | None = None
-) -> dict[str, Any]:
-    """Run the full benchmark across all available systems.
-
-    For each system on each sample the runner:
-    1. Compiles / answers the input story.
-    2. Verifies JSON validity and operation schemas (SAGE systems).
-    3. Executes the operations against the deterministic engine.
-    4. Compares the rendered answer to the ground truth.
-    5. Records latency and token counts.
-
-    Args:
-        benchmark_path: Path to a JSONL benchmark file.  Each line must be
-            a JSON object with at least ``"id"``, ``"story"``,
-            ``"ops"``, and ``"answer"`` fields.
-        config: Optional ``EvalConfig``; sensible defaults are used when
-            omitted.
-
-    Returns:
-        A dict with ``"results"`` (list of per-sample result dicts) and
-        ``"metrics"`` (aggregate per-system metrics from
-        ``compute_all_metrics``).
-    """
-    cfg = config or EvalConfig()
-    engine_cfg = EngineConfig()
+def run_oracle(benchmark_path: Path, max_samples: int | None = None) -> dict[str, Any]:
+    """Evaluate using ground-truth ops directly. Oracle SAGE should be ~100%."""
     samples = _load_benchmark(benchmark_path)
+    if max_samples:
+        samples = samples[:max_samples]
 
-    verifier = Verifier(engine_cfg)
-    executor = Executor(engine_cfg)
+    executor = Executor(EngineConfig())
     renderer = Renderer()
+    all_results: list[dict] = []
 
-    all_results: list[dict[str, Any]] = []
+    for sample in samples:
+        story = sample.get("story", "")
+        gt_answer = str(sample.get("answer", ""))
+        gt_ops_dicts = sample.get("ops", [])
 
-    # ── Rule Compiler ──────────────────────────────────────────────
-    if _RuleCompiler is not None:
-        logger.info("Running rule compiler …")
-        rc = _RuleCompiler()
-        for sample in samples:
-            story = sample.get("story", "")
-            ground_truth = str(sample.get("answer", ""))
-            pipeline = _run_sage_pipeline(story, rc, verifier, executor, renderer)
-            all_results.append({
-                "id": sample.get("id", ""),
-                "system": "rule_compiler",
-                "ground_truth_answer": ground_truth,
-                "predicted_answer": pipeline["predicted_answer"],
-                "compiled_output": pipeline["compiled_output"],
-                "execution_success": pipeline["execution_success"],
-                "valid_json": pipeline["valid_json"],
-                "valid_ops": pipeline["valid_ops"],
-                "num_events": sample.get("metadata", {}).get("num_events",
-                             len(sample.get("ops", []))),
-                "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
-                "latency_ms": pipeline["latency_ms"],
-                "tokens_in": pipeline["tokens_in"],
-                "tokens_out": pipeline["tokens_out"],
-            })
+        ops = _ops_dicts_to_operations(gt_ops_dicts)
+        result = executor.execute(ops)
 
-    # ── Model Compiler ─────────────────────────────────────────────
-    if _ModelCompiler is not None:
-        logger.info("Running model compiler …")
-        mc = _ModelCompiler()
-        for sample in samples:
-            story = sample.get("story", "")
-            ground_truth = str(sample.get("answer", ""))
-            pipeline = _run_sage_pipeline(story, mc, verifier, executor, renderer)
-            all_results.append({
-                "id": sample.get("id", ""),
-                "system": "model_compiler",
-                "ground_truth_answer": ground_truth,
-                "predicted_answer": pipeline["predicted_answer"],
-                "compiled_output": pipeline["compiled_output"],
-                "execution_success": pipeline["execution_success"],
-                "valid_json": pipeline["valid_json"],
-                "valid_ops": pipeline["valid_ops"],
-                "num_events": sample.get("metadata", {}).get("num_events",
-                             len(sample.get("ops", []))),
-                "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
-                "latency_ms": pipeline["latency_ms"],
-                "tokens_in": pipeline["tokens_in"],
-                "tokens_out": pipeline["tokens_out"],
-            })
+        predicted = renderer.render_raw(result) if result.valid else ""
+        answer_match = str(predicted).strip() == gt_answer.strip()
 
-    # ── Direct Answer Baseline ─────────────────────────────────────
-    if _DirectAnswerModel is not None:
-        logger.info("Running direct-answer baseline …")
-        dam = _DirectAnswerModel()
-        for sample in samples:
-            story = sample.get("story", "")
-            ground_truth = str(sample.get("answer", ""))
-            out = _run_direct_baseline(story, dam)
-            all_results.append({
-                "id": sample.get("id", ""),
-                "system": "direct_answer",
-                "ground_truth_answer": ground_truth,
-                "predicted_answer": out["predicted_answer"],
-                "compiled_output": out["compiled_output"],
-                "execution_success": out["execution_success"],
-                "valid_json": out["valid_json"],
-                "valid_ops": out["valid_ops"],
-                "num_events": sample.get("metadata", {}).get("num_events",
-                             len(sample.get("ops", []))),
-                "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
-                "latency_ms": out["latency_ms"],
-                "tokens_in": out["tokens_in"],
-                "tokens_out": out["tokens_out"],
-            })
+        all_results.append({
+            "id": sample.get("id", ""),
+            "system": "oracle",
+            "ground_truth_answer": gt_answer,
+            "predicted_answer": predicted,
+            "answer_match": answer_match,
+            "compiled_output": json.dumps(gt_ops_dicts),
+            "execution_success": result.valid,
+            "valid_json": True,
+            "valid_ops": True,
+            "evidence_valid": True,
+            "num_events": sample.get("metadata", {}).get("num_events", len(gt_ops_dicts)),
+            "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
+            "latency_ms": 0.0,
+            "ground_truth_ops": gt_ops_dicts,
+            "compiled_ops_raw": gt_ops_dicts,
+            "missing_ops": [],
+            "extra_ops": [],
+            "failure_reason": "" if answer_match else "answer_mismatch",
+        })
 
-    # ── Heuristic Baseline ─────────────────────────────────────────
-    if _HeuristicBaseline is not None:
-        logger.info("Running heuristic baseline …")
-        hb = _HeuristicBaseline()
-        for sample in samples:
-            story = sample.get("story", "")
-            ground_truth = str(sample.get("answer", ""))
-            out = _run_heuristic_baseline(story, hb)
-            all_results.append({
-                "id": sample.get("id", ""),
-                "system": "heuristic",
-                "ground_truth_answer": ground_truth,
-                "predicted_answer": out["predicted_answer"],
-                "compiled_output": out["compiled_output"],
-                "execution_success": out["execution_success"],
-                "valid_json": out["valid_json"],
-                "valid_ops": out["valid_ops"],
-                "num_events": sample.get("metadata", {}).get("num_events",
-                             len(sample.get("ops", []))),
-                "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
-                "latency_ms": out["latency_ms"],
-                "tokens_in": out["tokens_in"],
-                "tokens_out": out["tokens_out"],
-            })
+    _save_failures(all_results, benchmark_path)
 
-    metrics = compute_all_metrics(all_results)
-
+    from sage.eval.metrics import compute_all_metrics
     return {
         "benchmark": str(benchmark_path),
         "num_samples": len(samples),
         "results": all_results,
-        "metrics": metrics,
+        "metrics": compute_all_metrics(all_results),
     }
 
 
-def run_rule_only(
-    benchmark_path: Path, max_samples: int = 100
-) -> dict[str, Any]:
-    """Quick evaluation using only the rule-based compiler.
+# ── Rule-only eval ────────────────────────────────────────────────
 
-    No model loading required. Useful for smoke-testing benchmarks
-    and verifying the rule compiler's accuracy on synthetic data.
-
-    Args:
-        benchmark_path: Path to a JSONL benchmark file.
-        max_samples: Maximum number of samples to evaluate.
-
-    Returns:
-        Dict with results and metrics for the rule compiler only.
-    """
+def run_rule_only(benchmark_path: Path, max_samples: int = 100) -> dict[str, Any]:
+    """Evaluate using the rule-based compiler with evidence and diagnostics."""
     samples = _load_benchmark(benchmark_path)[:max_samples]
     engine_cfg = EngineConfig()
     verifier = Verifier(engine_cfg)
@@ -357,79 +159,157 @@ def run_rule_only(
         raise ImportError("RuleCompiler not available")
 
     rc = _RuleCompiler()
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
 
     for sample in samples:
         story = sample.get("story", "")
-        ground_truth = str(sample.get("answer", ""))
-        pipeline = _run_sage_pipeline(story, rc, verifier, executor, renderer)
+        gt_answer = str(sample.get("answer", ""))
+        gt_ops_dicts = sample.get("ops", [])
+
+        t0 = time.perf_counter()
+        compiled_ops_raw, compile_success = rc.compile(story)
+        compiled_json = json.dumps(compiled_ops_raw)
+
+        # Verify with evidence
+        ops, vr = verifier.verify(compiled_json, story_text=story)
+
+        # Execute
+        exec_result = executor.execute(ops) if ops else None
+        predicted = renderer.render_raw(exec_result) if exec_result and exec_result.valid else ""
+        answer_match = str(predicted).strip() == gt_answer.strip()
+
+        # Compute diff
+        missing, extra = _compute_diff(gt_ops_dicts, compiled_ops_raw)
+
+        # Determine failure reason
+        failure_reason = ""
+        if not compile_success or not compiled_ops_raw:
+            failure_reason = "compile_failed"
+        elif exec_result is None or not exec_result.valid:
+            failure_reason = "execution_failed"
+        elif not vr.valid_ops:
+            failure_reason = "evidence_invalid"
+        elif not answer_match:
+            failure_reason = "answer_mismatch"
+
+        latency = (time.perf_counter() - t0) * 1000
+
         all_results.append({
             "id": sample.get("id", ""),
             "system": "rule_compiler",
-            "ground_truth_answer": ground_truth,
-            "predicted_answer": pipeline["predicted_answer"],
-            "compiled_output": pipeline["compiled_output"],
-            "execution_success": pipeline["execution_success"],
-            "valid_json": pipeline["valid_json"],
-            "valid_ops": pipeline["valid_ops"],
-            "num_events": sample.get("metadata", {}).get("num_events",
-                         len(sample.get("ops", []))),
+            "ground_truth_answer": gt_answer,
+            "predicted_answer": predicted,
+            "answer_match": answer_match,
+            "compiled_output": compiled_json,
+            "execution_success": exec_result.valid if exec_result else False,
+            "valid_json": vr.valid_json,
+            "valid_ops": vr.valid_ops,
+            "evidence_valid": vr.execution_success,
+            "num_events": sample.get("metadata", {}).get("num_events", len(gt_ops_dicts)),
             "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
-            "latency_ms": pipeline["latency_ms"],
-            "tokens_in": pipeline["tokens_in"],
-            "tokens_out": pipeline["tokens_out"],
+            "latency_ms": latency,
+            "ground_truth_ops": gt_ops_dicts,
+            "compiled_ops_raw": compiled_ops_raw,
+            "missing_ops": missing,
+            "extra_ops": extra,
+            "failure_reason": failure_reason,
         })
 
-    metrics = compute_all_metrics(all_results)
+    _save_failures(all_results, benchmark_path)
 
+    from sage.eval.metrics import compute_all_metrics
     return {
         "benchmark": str(benchmark_path),
         "num_samples": len(samples),
         "results": all_results,
-        "metrics": metrics,
+        "metrics": compute_all_metrics(all_results),
     }
 
 
-class BenchmarkRunner:
-    """Class-based interface for running benchmarks.
+# ── Full benchmark ────────────────────────────────────────────────
 
-    Holds configuration and shared engine/verifier/renderer instances so
-    that repeated calls are cheaper and logging is co-located.
+def run_benchmark(benchmark_path: Path, config: EvalConfig | None = None) -> dict[str, Any]:
+    """Run full benchmark across all available systems."""
+    cfg = config or EvalConfig()
+    samples = _load_benchmark(benchmark_path)
+    engine_cfg = EngineConfig()
+    verifier = Verifier(engine_cfg)
+    executor = Executor(engine_cfg)
+    renderer = Renderer()
+    all_results: list[dict] = []
 
-    Usage::
+    # Rule Compiler
+    if _RuleCompiler is not None:
+        rc = _RuleCompiler()
+        for sample in samples:
+            story = sample.get("story", "")
+            gt_answer = str(sample.get("answer", ""))
+            gt_ops = sample.get("ops", [])
+            t0 = time.perf_counter()
+            comp_raw, _ = rc.compile(story)
+            comp_json = json.dumps(comp_raw)
+            ops, vr = verifier.verify(comp_json, story_text=story)
+            er = executor.execute(ops) if ops else None
+            pred = renderer.render_raw(er) if er and er.valid else ""
+            match = str(pred).strip() == gt_answer.strip()
+            missing, extra = _compute_diff(gt_ops, comp_raw)
+            all_results.append({
+                "id": sample.get("id", ""),
+                "system": "rule_compiler",
+                "ground_truth_answer": gt_answer,
+                "predicted_answer": pred,
+                "answer_match": match,
+                "compiled_output": comp_json,
+                "execution_success": er.valid if er else False,
+                "valid_json": vr.valid_json,
+                "valid_ops": vr.valid_ops,
+                "evidence_valid": vr.execution_success,
+                "num_events": sample.get("metadata", {}).get("num_events", len(gt_ops)),
+                "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
+                "latency_ms": (time.perf_counter() - t0) * 1000,
+                "ground_truth_ops": gt_ops,
+                "compiled_ops_raw": comp_raw,
+                "missing_ops": missing,
+                "extra_ops": extra,
+                "failure_reason": "" if match else "answer_mismatch",
+            })
 
-        runner = BenchmarkRunner(EvalConfig(benchmark_path=Path("bench.jsonl")))
-        report = runner.run()
-        runner.print_report()
-    """
+    # Heuristic Baseline
+    if _HeuristicBaseline is not None:
+        hb = _HeuristicBaseline()
+        for sample in samples:
+            story = sample.get("story", "")
+            gt_answer = str(sample.get("answer", ""))
+            t0 = time.perf_counter()
+            pred = hb.answer(story)
+            match = str(pred).strip() == gt_answer.strip()
+            all_results.append({
+                "id": sample.get("id", ""),
+                "system": "heuristic",
+                "ground_truth_answer": gt_answer,
+                "predicted_answer": str(pred),
+                "answer_match": match,
+                "compiled_output": "",
+                "execution_success": False,
+                "valid_json": False,
+                "valid_ops": False,
+                "evidence_valid": False,
+                "num_events": sample.get("metadata", {}).get("num_events", len(sample.get("ops", []))),
+                "noise_level": sample.get("metadata", {}).get("noise_level", 0.0),
+                "latency_ms": (time.perf_counter() - t0) * 1000,
+                "ground_truth_ops": sample.get("ops", []),
+                "compiled_ops_raw": [],
+                "missing_ops": [],
+                "extra_ops": [],
+                "failure_reason": "" if match else "answer_mismatch",
+            })
 
-    def __init__(self, config: EvalConfig | None = None):
-        self.config = config or EvalConfig()
-        self._engine_cfg = EngineConfig()
-        self._verifier = Verifier(self._engine_cfg)
-        self._executor = Executor(self._engine_cfg)
-        self._renderer = Renderer()
+    _save_failures([r for r in all_results if r.get("system") == "rule_compiler"], benchmark_path)
 
-    def run(self, benchmark_path: Path | None = None) -> dict[str, Any]:
-        """Run the benchmark and return the full report dict.
-
-        Args:
-            benchmark_path: Override the path in the config.
-
-        Returns:
-            The same dict as ``run_benchmark``.
-        """
-        path = benchmark_path or self.config.benchmark_path
-        return run_benchmark(path, self.config)
-
-    @property
-    def verifier(self) -> Verifier:
-        return self._verifier
-
-    @property
-    def executor(self) -> Executor:
-        return self._executor
-
-    @property
-    def renderer(self) -> Renderer:
-        return self._renderer
+    from sage.eval.metrics import compute_all_metrics
+    return {
+        "benchmark": str(benchmark_path),
+        "num_samples": len(samples),
+        "results": all_results,
+        "metrics": compute_all_metrics(all_results),
+    }

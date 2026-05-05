@@ -1,4 +1,4 @@
-"""Pydantic schemas for SAGE operations."""
+"""Pydantic schemas for SAGE operations — with evidence support."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field, model_validator
 
 class OpType(str, Enum):
     """Valid operation types."""
-
     SET = "SET"
     ADD = "ADD"
     SUB = "SUB"
@@ -18,14 +17,23 @@ class OpType(str, Enum):
     QUERY = "QUERY"
 
 
+class Evidence(BaseModel):
+    """Evidence for a compiled operation — links op to source text span."""
+    span: str = Field(default="", description="Exact substring from the story.")
+    start: int = Field(default=0, description="Character offset where span begins.")
+    end: int = Field(default=0, description="Character offset where span ends.")
+    confidence: float = Field(default=1.0, description="Confidence in this compilation (0-1).")
+
+
 class Operation(BaseModel):
-    """A single state operation."""
+    """A single state operation with optional evidence."""
 
     op: OpType
     target: str | None = Field(default=None, description="Target state key (e.g. 'Latif.coins').")
     value: int | None = Field(default=None, description="Numeric value for the operation.")
     from_target: str | None = Field(default=None, description="Source for TRANSFER operations.")
     to_target: str | None = Field(default=None, description="Destination for TRANSFER operations.")
+    evidence: Evidence | None = Field(default=None, description="Source text evidence for this operation.")
 
     @model_validator(mode="after")
     def validate_fields(self) -> "Operation":
@@ -41,7 +49,6 @@ class Operation(BaseModel):
             if self.target is None:
                 raise ValueError("QUERY requires 'target'")
         else:
-            # SET, ADD, SUB
             if self.target is None:
                 raise ValueError(f"{op.value} requires 'target'")
             if self.value is None:
@@ -54,7 +61,6 @@ class Operation(BaseModel):
 
 class OperationSequence(BaseModel):
     """A sequence of operations that can be executed by the engine."""
-
     ops: list[Operation] = Field(default_factory=list)
 
     def __len__(self) -> int:
@@ -67,19 +73,18 @@ class OperationSequence(BaseModel):
         return self.ops[idx]
 
 
-# Aliases for JSON-serialization fields
-# We need to use aliases because the JSON format uses "from" and "to"
-# but those are Python keywords.
 class OperationJSON(Operation):
-    """Operation with JSON-friendly field aliases."""
+    """Operation with JSON-friendly field aliases ('from'/'to' → 'from_target'/'to_target')."""
 
     @model_validator(mode="before")
     @classmethod
     def map_aliases(cls, data: dict) -> dict:
-        """Map JSON keys 'from' and 'to' to Python-safe field names."""
         if isinstance(data, dict):
             if "from" in data:
                 data["from_target"] = data.pop("from")
             if "to" in data:
                 data["to_target"] = data.pop("to")
+            # Handle evidence as nested dict
+            if "evidence" in data and isinstance(data["evidence"], dict):
+                pass  # Pydantic handles nested models automatically
         return data
