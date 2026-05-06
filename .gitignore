@@ -35,3 +35,13 @@ Thumbs.db
 # SAGE specific
 outputs/
 experiments/
+
+# Private logs (local only, never commit)
+/data/private_logs/
+
+# Generated incident reports (runtime artifacts)
+/data/reports/incident_report.md
+/data/reports/incident_ops.json
+
+# HF model cache when stored locally
+/models/hf_cache/
