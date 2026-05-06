@@ -77,7 +77,15 @@ def _parse_single_op(line: str, original_text: str) -> dict | None:
             start = m.start()
             span = original_text[start:start + len(span)]
         else:
-            return None  # Span not found — evidence invalid
+            # Try replacing digits with word numbers in span for matching
+            NW={0:'zero',1:'one',2:'two',3:'three',4:'four',5:'five',6:'six',7:'seven',8:'eight',9:'nine',10:'ten',11:'eleven',12:'twelve',13:'thirteen',14:'fourteen',15:'fifteen',16:'sixteen',17:'seventeen',18:'eighteen',19:'nineteen',20:'twenty',30:'thirty',40:'forty',50:'fifty',60:'sixty',70:'seventy',80:'eighty',90:'ninety'}
+            alt=span
+            for d,w in sorted(NW.items(),reverse=True):
+                alt=alt.replace(str(d),w)
+            if alt!=span:
+                start=original_text.find(alt)
+                if start>=0:span=alt
+            if start==-1:return None
 
     end = start + len(span)
     evidence = {"span": span, "start": start, "end": end, "confidence": 1.0}

@@ -407,7 +407,7 @@ def eval_direct_cmd(
 def compare_cmd(
     benchmarks_dir: Path = typer.Option(Path("data/benchmarks"), "--benchmarks-dir", "-b",
                                         help="Directory containing benchmark JSONL files"),
-    max_per: int = typer.Option(100, "--max-samples", "-n", help="Max samples per benchmark"),
+    max_samples: int = typer.Option(100, "--max-samples", "-n", help="Max samples per benchmark"),
     output_dir: Path = typer.Option(Path("data/reports"), "--output-dir", "-o",
                                     help="Output directory for reports"),
 ):
@@ -416,10 +416,10 @@ def compare_cmd(
 
     console.print(f"[bold blue]SAGE vs Direct — Full Comparison[/]")
     console.print(f"  Benchmarks dir: {benchmarks_dir}")
-    console.print(f"  Max per benchmark: {max_per}")
+    console.print(f"  Max per benchmark: {max_samples}")
 
     with console.status("[bold green]Running comparison..."):
-        comparison = run_full_comparison(benchmarks_dir, max_per=max_per)
+        comparison = run_full_comparison(benchmarks_dir, max_samples=max_samples)
 
     # Print summary table
     table = Table(title="SAGE vs Direct — Accuracy Summary")
@@ -687,7 +687,7 @@ def eval_hybrid_cmd(
 def compare_full_cmd(
     benchmarks_dir: Path = typer.Option(Path("data/benchmarks"), "--benchmarks-dir", "-b"),
     sklearn_model: Path = typer.Option(Path("models/sklearn-op-classifier.joblib"), "--sklearn-model", "-s"),
-    max_per: int = typer.Option(50, "--max-samples", "-n"),
+    max_samples: int = typer.Option(50, "--max-samples", "-n"),
     output_dir: Path = typer.Option(Path("data/reports"), "--output-dir", "-o"),
 ):
     """Run full comparison: oracle, rule, sklearn, hybrid, sklearn direct, heuristic."""
@@ -705,7 +705,7 @@ def compare_full_cmd(
 
     console.print("[bold blue]Full SAGE Comparison[/]")
 
-    benchmarks = ["easy","medium","hard","long","adversarial","ood_names","ood_phrasing","ood_numbers","ood_mixed"]
+    bench_list = [b.strip() for b in benchmarks.split(",") if b.strip()]
 
     hybrid = HybridSAGECompiler()
     hybrid.load(sklearn_model)
@@ -721,11 +721,11 @@ def compare_full_cmd(
 
     comparison = {"benchmarks": {}}
 
-    for name in benchmarks:
+    for name in bench_list:
         path = benchmarks_dir / f"{name}.jsonl"
         if not path.exists():
             continue
-        n = min(max_per, 50 if name in ("long","hard","ood_mixed","ood_phrasing") else 100)
+        samples = _load_benchmark(path)[:max_samples]
 
         console.print(f"  {name}...", end="")
 
@@ -735,7 +735,7 @@ def compare_full_cmd(
 
         # Hybrid
         hybrid.reset_stats()
-        samples = _load_benchmark(path)[:n]
+        
         h_res = []
         for s in samples:
             t0 = time.perf_counter()
@@ -776,7 +776,7 @@ def compare_full_cmd(
     table.add_column("Hybrid")
     table.add_column("Sklearn D.")
     table.add_column("Heuristic")
-    for name in benchmarks:
+    for name in bench_list:
         if name not in comparison["benchmarks"]:
             continue
         d = comparison["benchmarks"][name]
@@ -796,7 +796,7 @@ def compare_full_cmd(
 def tune_hybrid_thresholds_cmd(
     benchmarks_dir: Path = typer.Option(Path("data/benchmarks"), "--benchmarks-dir", "-b"),
     sklearn_model: Path = typer.Option(Path("models/sklearn-op-classifier.joblib"), "--sklearn-model", "-s"),
-    max_per: int = typer.Option(30, "--max-samples", "-n"),
+    max_samples: int = typer.Option(30, "--max-samples", "-n"),
 ):
     """Sweep normalizer thresholds to find the best tradeoff for OOD vs adversarial."""
     import json, time
@@ -829,12 +829,12 @@ def tune_hybrid_thresholds_cmd(
         compiler.load(sklearn_model)
 
         row = {}
-        for name in benchmarks:
+        for name in bench_list:
             path = benchmarks_dir / f"{name}.jsonl"
             if not path.exists():
                 continue
-            n = min(max_per, 30)
-            samples = _load_benchmark(path)[:n]
+            n = min(max_samples, 30)
+            
 
             engine_cfg = EngineConfig()
             verifier = Verifier(engine_cfg)
@@ -903,6 +903,19 @@ def tune_hybrid_thresholds_cmd(
     console.print(f"\n[bold green]Best threshold: {best_thresh:.2f} (weighted score: {best_score*100:.1f}%)[/]")
 
 
+# ── generate-contrastive-ood-data ─────────────────────────────
+
+@app.command("generate-contrastive-ood-data")
+def generate_contrastive_ood_data_cmd(
+    samples: int = typer.Option(60000, "--samples", "-n"),
+    output_dir: Path = typer.Option(Path("data/generated"), "--output", "-o"),
+    seed: int = typer.Option(42, "--seed"),
+):
+    """Generate contrastive OOD training data for the neural compiler."""
+    from sage.training.contrastive_ood_generator import generate_contrastive_split
+    console.print("[bold blue]Generating Contrastive OOD Data[/]")
+    generate_contrastive_split(num_samples=samples, output_dir=str(output_dir), seed=seed)
+    console.print("[green]Done.[/]")
 # ── generate-neural-training-data ───────────────────────────────
 
 @app.command("generate-neural-training-data")
@@ -954,7 +967,11 @@ def train_neural_sentence_compiler_cmd(
 def eval_neural_sentence_compiler_cmd(
     model_path: Path = typer.Option(..., "--model", "-m"),
     benchmarks_dir: Path = typer.Option(Path("data/benchmarks"), "--benchmarks-dir", "-b"),
-    max_per: int = typer.Option(30, "--max-samples", "-n"),
+    max_sentences: int = typer.Option(500, "--max-sentences-per-story"),
+    eval_batch_size: int = typer.Option(32, "--eval-batch-size"),
+    benchmarks: str = typer.Option("easy,medium,hard,long,adversarial,ood_numbers,ood_phrasing,ood_mixed,ood_names", "--benchmarks"),
+    output_dir: Path = typer.Option(Path("data/reports"), "--output-dir", "-o"),
+    max_samples: int = typer.Option(30, "--max-samples", "-n"),
     device: str = typer.Option("auto", "--device", help="Device: auto, cuda, mps, cpu"),
     target_format: str = typer.Option("dsl", "--target-format"),
 ):
@@ -978,40 +995,60 @@ def eval_neural_sentence_compiler_cmd(
     model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path)).to(dev)
     model.eval()
     
-    benchmarks = ["easy","medium","hard","long","adversarial","ood_names","ood_phrasing","ood_numbers","ood_mixed"]
+    bench_list = [b.strip() for b in benchmarks.split(",") if b.strip()]
     engine_cfg = EngineConfig()
     verifier = Verifier(engine_cfg); executor = Executor(engine_cfg); renderer = Renderer()
     
-    for name in benchmarks:
+    for name in bench_list:
         path = benchmarks_dir / f"{name}.jsonl"
         if not path.exists(): continue
-        n = min(max_per, 50 if name in ("long","hard","ood_mixed","ood_phrasing") else 100)
-        samples = _load_benchmark(path)[:n]
+        samples = _load_benchmark(path)[:max_samples]
+        
         
         results = []
         for sample in samples:
             story = sample["story"]
             sentences = split_sentences(story)
             
-            # Compile sentence by sentence
-            ops = []
-            for sent in sentences:
-                input_text = f"compile_sentence: {sent}"
-                inputs = tokenizer(input_text, return_tensors="pt", max_length=256, truncation=True).to(dev)
+            # Collect ALL sentences across all samples (flattened)
+            all_sentences = []
+            sent_to_sample = []
+            for si, sample in enumerate(samples):
+                sents = split_sentences(sample["story"])[:max_sentences]
+                for sxi, sent in enumerate(sents):
+                    all_sentences.append(f"compile_sentence: {sent}")
+                    sent_to_sample.append((si, sxi))
+            console.print(f", {len(all_sentences)} sentences", end="")
+
+            # Batch-generate all outputs
+            all_ops_raw = []
+            for bs in range(0, len(all_sentences), eval_batch_size):
+                batch_sents = all_sentences[bs:bs+eval_batch_size]
+                inputs = tokenizer(batch_sents, return_tensors="pt", max_length=256, truncation=True, padding=True).to(dev)
                 with torch.no_grad():
-                    outputs = model.generate(**inputs, max_new_tokens=256, num_beams=1)
-                raw = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+                    outputs = model.generate(**inputs, max_new_tokens=128, num_beams=1, do_sample=False)
+                for out_ids in outputs:
+                    all_ops_raw.append(tokenizer.decode(out_ids, skip_special_tokens=True).strip())
+
+            # Assemble ops per story
+            story_ops = {si: [] for si in range(len(samples))}
+            for sent_idx, raw in enumerate(all_ops_raw):
+                si = sent_to_sample[sent_idx][0]
                 if target_format == "dsl":
                     from sage.compiler.op_dsl import parse_op_dsl
-                    parsed_ops = parse_op_dsl(raw, story)
-                    ops.extend(parsed_ops)
+                    parsed = parse_op_dsl(raw, samples[si]["story"])
+                    story_ops[si].extend(parsed)
                 else:
                     try:
                         parsed = json.loads(raw)
                         if isinstance(parsed, list) and len(parsed) > 0:
-                            ops.append(parsed[0])
+                            story_ops[si].append(parsed[0])
                     except:
                         pass
+
+            results = []
+            for si, sample in enumerate(samples):
+                ops = story_ops[si]
             
             # Normalize TRANSFER ops: convert from/to to from_target/to_target for verifier
             for op in ops:
@@ -1050,6 +1087,23 @@ def eval_neural_sentence_compiler_cmd(
     console.print("[green]Done.[/]")
 
 
+# ── eval-neural-fast ────────────────────────────────────────────
+
+@app.command("eval-neural-fast")
+def eval_neural_fast_cmd(
+    model_path: Path = typer.Option(..., "--model", "-m"),
+    device: str = typer.Option("auto", "--device"),
+    target_format: str = typer.Option("dsl", "--target-format"),
+    eval_batch_size: int = typer.Option(32, "--eval-batch-size"),
+):
+    """Fast evaluation on all benchmarks with optimized defaults."""
+    eval_neural_sentence_compiler_cmd(
+        benchmarks_dir=Path("data/benchmarks"),
+        model_path=model_path,
+        benchmarks="easy,medium,hard,long,adversarial,ood_numbers,ood_phrasing,ood_mixed,ood_names",
+        max_samples=100, max_sentences=500, eval_batch_size=eval_batch_size,
+        device=device, target_format=target_format
+    )
 # ── eval-models ──────────────────────────────────────────────────
 
 @app.command("eval-models")
@@ -1057,7 +1111,7 @@ def eval_models_cmd(
     benchmarks_dir: Path = typer.Option(Path("data/benchmarks"), "--benchmarks-dir", "-b"),
     compiler_model: Optional[Path] = typer.Option(None, "--compiler-model", "-c", help="Path to compiler model checkpoint"),
     direct_model: Optional[Path] = typer.Option(None, "--direct-model", "-d", help="Path to direct model checkpoint"),
-    max_per: int = typer.Option(50, "--max-samples", "-n"),
+    max_samples: int = typer.Option(50, "--max-samples", "-n"),
     output_dir: Path = typer.Option(Path("data/reports"), "--output-dir", "-o"),
     use_cpu: bool = typer.Option(True, "--cpu/--gpu"),
 ):
@@ -1070,7 +1124,7 @@ def eval_models_cmd(
         benchmarks_dir=benchmarks_dir,
         compiler_checkpoint=compiler_model,
         direct_checkpoint=direct_model,
-        max_per_benchmark=max_per,
+        max_samples_benchmark=max_samples,
         use_cpu=use_cpu,
     )
 
