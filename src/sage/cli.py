@@ -1452,6 +1452,115 @@ def logs_analyze_cmd(
         console.print(f"\n[green]Markdown report saved to {output}[/]")
 
 
+
+# ── codemap ──────────────────────────────────────────────────────
+
+@app.command("codemap-scan")
+def codemap_scan_cmd(
+    path: Path = typer.Option(..., "--path", "-p", help="Path to project to scan"),
+    output: Path = typer.Option(Path("data/codemaps/codemap.json"), "--output", "-o"),
+):
+    """Scan a project and generate a CodeMap JSON."""
+    from sage.domains.codemap.codemap_scan import run_codemap_scan
+    console.print(f"[bold blue]SAGE CodeMap Scan[/]\n")
+    console.print(f"Project: {path}")
+    result = run_codemap_scan(path, output)
+    tf = len(result.get("files", {}))
+    to = result.get("ops_count", 0)
+    lg = ", ".join(result.get("languages", []))
+    fw = ", ".join(result.get("frameworks", []))
+    console.print(f"Files: {tf}")
+    console.print(f"Operations: {to}")
+    console.print(f"Languages: {lg}")
+    console.print(f"Frameworks: {fw}")
+
+
+@app.command("codemap-summary")
+def codemap_summary_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+):
+    """Print a summary of a CodeMap."""
+    from sage.domains.codemap.codemap_scan import load_codemap
+    from sage.domains.codemap.codemap_renderer import render_summary
+    data = load_codemap(map)
+    console.print(render_summary(data))
+
+
+@app.command("codemap-ask")
+def codemap_ask_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+    question: str = typer.Option(..., "--question", "-q"),
+):
+    """Ask a question about a CodeMap."""
+    from sage.domains.codemap.codemap_scan import load_codemap
+    from sage.domains.codemap.codemap_ask import CodemapAsk
+    from sage.domains.codemap.codemap_renderer import render_ask_answer
+    data = load_codemap(map)
+    ask = CodemapAsk(data)
+    answer = ask.ask(question)
+    console.print(render_ask_answer(question, answer, answer.get("evidence", [])))
+
+
+@app.command("codemap-impact")
+def codemap_impact_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+    file: str = typer.Option(..., "--file", "-f", help="File to analyze impact for"),
+):
+    """Analyze impact of changing a file."""
+    from sage.domains.codemap.codemap_scan import load_codemap
+    from sage.domains.codemap.codemap_ask import CodemapAsk
+    from sage.domains.codemap.codemap_renderer import render_impact
+    data = load_codemap(map)
+    ask = CodemapAsk(data)
+    result = ask._find_impact(f"change {file}")
+    result["file"] = file
+    console.print(render_impact(result))
+
+
+@app.command("codemap-search")
+def codemap_search_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+    query: str = typer.Option(..., "--query", "-q"),
+):
+    """Search a CodeMap for a keyword."""
+    from sage.domains.codemap.codemap_scan import load_codemap
+    from sage.domains.codemap.codemap_ask import CodemapAsk
+    from sage.domains.codemap.codemap_renderer import render_ask_answer
+    data = load_codemap(map)
+    ask = CodemapAsk(data)
+    answer = ask._search(query)
+    console.print(render_ask_answer(query, answer, answer.get("evidence", [])))
+
+
+@app.command("codemap-routes")
+def codemap_routes_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+):
+    """List all routes/endpoints from a CodeMap."""
+    from sage.domains.codemap.codemap_scan import load_codemap
+    from sage.domains.codemap.codemap_ask import CodemapAsk
+    from sage.domains.codemap.codemap_renderer import render_ask_answer
+    data = load_codemap(map)
+    ask = CodemapAsk(data)
+    answer = ask._find_endpoints()
+    console.print(render_ask_answer("What endpoints exist?", answer, answer.get("evidence", [])))
+
+
+@app.command("codemap-symbol")
+def codemap_symbol_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+    symbol: str = typer.Option(..., "--symbol", "-s"),
+):
+    """Find usages of a symbol in a CodeMap."""
+    from sage.domains.codemap.codemap_scan import load_codemap
+    from sage.domains.codemap.codemap_ask import CodemapAsk
+    from sage.domains.codemap.codemap_renderer import render_ask_answer
+    data = load_codemap(map)
+    ask = CodemapAsk(data)
+    answer = ask._find_usages(symbol)
+    console.print(render_ask_answer(f"Where is {symbol} used?", answer, answer.get("evidence", [])))
+
+
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")

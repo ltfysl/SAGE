@@ -53,3 +53,4 @@ experiments/
 /apps/sage-incident-lens-web/.uploads/
 /apps/sage-incident-lens-web/next-env.d.ts
 /apps/sage-incident-lens-web/package-lock.json
+/data/codemaps/

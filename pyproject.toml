@@ -45,3 +45,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 sage = ["py.typed"]
+
+[tool.pytest.ini_options]
+norecursedirs = ["data/samples/codebases"]
