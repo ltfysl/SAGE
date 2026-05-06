@@ -1,0 +1,267 @@
+[2026-05-06 12:00:58] production.INFO: SCORM commit received {"learner_id":1411,"cmi.core.lesson_status":"completed"}
+
+[2026-05-06 12:02:25] production.INFO: API request to /api/scorm/commit completed in 45ms
+
+[2026-05-06 12:03:17] production.INFO: Scheduler started
+
+[2026-05-06 12:04:10] production.INFO: API request to /api/scorm/commit completed in 45ms
+
+[2026-05-06 12:04:46] production.INFO: Password reset requested for 4425@example.com
+
+[2026-05-06 12:06:12] production.INFO: Certificate PDF generated for learner 8809
+
+[2026-05-06 12:06:43] production.INFO: Daily digest email sent to 3740@example.com
+
+[2026-05-06 12:08:24] production.INFO: Daily digest email sent to 3603@example.com
+
+[2026-05-06 12:09:20] production.INFO: Processing queued jobs
+
+[2026-05-06 12:11:21] production.INFO: Certificate PDF generated for learner 7028
+
+[2026-05-06 12:12:02] production.INFO: Processing queued jobs
+
+[2026-05-06 12:14:08] production.INFO: Certificate PDF generated for learner 2370
+
+[2026-05-06 12:16:10] production.INFO: Scheduler started
+
+[2026-05-06 12:17:38] production.INFO: SCORM commit received {"learner_id":6069,"cmi.core.lesson_status":"completed"}
+
+[2026-05-06 12:18:33] production.INFO: Background job PushToLRS queued for learner 7576
+
+[2026-05-06 12:20:36] production.INFO: Daily digest email sent to 3740@example.com
+
+[2026-05-06 12:21:59] production.INFO: Report cache cleared for tenant acme
+
+[2026-05-06 12:23:12] production.INFO: Background job PushToLRS queued for learner 5247
+
+[2026-05-06 12:25:19] production.INFO: SCORM commit received {"learner_id":5658,"cmi.core.lesson_status":"completed"}
+
+[2026-05-06 12:27:12] production.INFO: Scheduler started
+
+[2026-05-06 12:29:02] production.INFO: Processing queued jobs
+
+[2026-05-06 12:30:26] production.INFO: Background job PushToLRS queued for learner 6480
+
+[2026-05-06 12:32:37] production.INFO: Certificate PDF generated for learner 8946
+
+[2026-05-06 12:33:42] production.INFO: API request to /api/scorm/commit completed in 45ms
+
+[2026-05-06 12:35:19] production.INFO: Password reset requested for 8398@example.com
+
+[2026-05-06 12:37:51] production.ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'progress_pct' in 'field list'
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/ReportController.php(160): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:40:57] production.ERROR: SQLSTATE[HY000] [2002] Connection refused
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/ScormCommitController.php(58): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:42:36] production.ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'progress_pct' in 'field list'
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Jobs/ProcessScormCommit.php(182): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:43:52] production.ERROR: SQLSTATE[HY000] [1040] Too many connections
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Jobs/ProcessScormCommit.php(182): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:46:51] production.ERROR: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry for key 'PRIMARY'
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/ScormCommitController.php(59): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:50:45] production.ERROR: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry for key 'PRIMARY'
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Jobs/SendCertificateMail.php(58): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:53:00] production.ERROR: SQLSTATE[HY000] [1040] Too many connections
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/ReportController.php(146): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:54:00] production.ERROR: SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry for key 'PRIMARY'
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/ReportController.php(159): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 12:58:53] production.ERROR: Connection could not be established with host smtp.example.com: stream_socket_client(): Unable to connect
+{"exception":"Swift_TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Services/NotificationService.php(193): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:02:02] production.ERROR: Expected response code 250 but got code "550", with message "550 Mailbox full"
+{"exception":"Swift_TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Http/Controllers/ReportController.php(125): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:06:17] production.ERROR: Expected response code 250 but got code "550", with message "550 Mailbox full"
+{"exception":"Swift_TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Http/Controllers/ScormCommitController.php(183): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:08:39] production.ERROR: Connection to smtp.example.com:587 timed out after 30 seconds
+{"exception":"Symfony\\Component\\Mailer\\Exception\\TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Http/Controllers/ScormCommitController.php(58): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:13:36] production.ERROR: Expected response code 250 but got code "421", with message "421 Too many concurrent SMTP connections"
+{"exception":"Swift_TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Services/NotificationService.php(91): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:14:50] production.ERROR: Expected response code 250 but got code "550", with message "550 Mailbox full"
+{"exception":"Swift_TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Http/Controllers/UserController.php(51): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:18:57] production.ERROR: Connection to smtp.example.com:587 timed out after 30 seconds
+{"exception":"Symfony\\Component\\Mailer\\Exception\\TransportException"}
+[stacktrace]
+#0 /var/www/app/vendor/symfony/mailer/Transport/Smtp/Stream/SocketStream.php(154): Symfony\\Component\\Mailer\\Transport\\Smtp\\Stream\\SocketStream->initialize()
+#1 /var/www/app/app/Http/Controllers/UserController.php(166): Symfony\\Component\\Mailer\\Mailer->send()
+
+
+[2026-05-06 13:23:13] production.ERROR: Illuminate\\Queue\\MaxAttemptsExceededException: App\\Jobs\\SendCertificateMail has been attempted too many times.
+{"exception":"Illuminate\\Queue\\MaxAttemptsExceededException"}
+
+[2026-05-06 13:24:45] production.ERROR: App\\Jobs\\SendCertificateMail has been attempted too many times or run too long.
+{"exception":"Illuminate\\Queue\\MaxAttemptsExceededException"}
+
+[2026-05-06 13:27:46] production.ERROR: App\\Jobs\\SendCertificateMail has been attempted too many times or run too long.
+{"exception":"Illuminate\\Queue\\MaxAttemptsExceededException"}
+
+[2026-05-06 13:29:28] production.ERROR: Illuminate\\Queue\\MaxAttemptsExceededException: App\\Jobs\\ProcessScormCommit has been attempted too many times.
+{"exception":"Illuminate\\Queue\\MaxAttemptsExceededException"}
+
+[2026-05-06 13:32:43] production.ERROR: App\\Jobs\\SendCertificateMail has been attempted too many times or run too long.
+{"exception":"Illuminate\\Queue\\MaxAttemptsExceededException"}
+
+[2026-05-06 13:35:31] production.ERROR: Illuminate\\Queue\\MaxAttemptsExceededException: App\\Jobs\\SendCertificateMail has been attempted too many times.
+{"exception":"Illuminate\\Queue\\MaxAttemptsExceededException"}
+
+[2026-05-06 13:38:49] production.WARNING: 403 Forbidden {"path":"/api/scorm/commit","user_id":6343}
+
+[2026-05-06 13:41:31] production.WARNING: 403 Forbidden {"path":"/admin/config","user_id":8672}
+
+[2026-05-06 13:44:43] production.WARNING: 403 Forbidden {"path":"/reports/export","user_id":3055}
+
+[2026-05-06 13:46:46] production.WARNING: 403 Forbidden {"path":"/api/scorm/commit","user_id":2096}
+
+[2026-05-06 13:49:12] production.WARNING: 403 Forbidden {"path":"/manager/users","user_id":4973}
+
+[2026-05-06 13:51:08] production.ERROR: 500 Internal Server Error {"path":"/api/scorm/commit","tenant":"acme"}
+{"exception":"Symfony\\Component\\HttpKernel\\Exception\\HttpException"}
+
+[2026-05-06 13:52:26] production.ERROR: 500 Internal Server Error {"path":"/api/scorm/commit","tenant":"acme"}
+{"exception":"Symfony\\Component\\HttpKernel\\Exception\\HttpException"}
+
+[2026-05-06 13:54:24] production.ERROR: 500 Internal Server Error {"path":"/api/scorm/commit","tenant":"acme"}
+{"exception":"Symfony\\Component\\HttpKernel\\Exception\\HttpException"}
+
+[2026-05-06 13:55:32] production.ERROR: 500 Internal Server Error {"path":"/api/scorm/commit","tenant":"initech"}
+{"exception":"Symfony\\Component\\HttpKernel\\Exception\\HttpException"}
+
+[2026-05-06 13:56:50] production.WARNING: Queue connection redis has 1870 pending jobs
+
+[2026-05-06 13:58:44] production.WARNING: Queue connection redis has 1680 pending jobs
+
+[2026-05-06 14:00:46] production.WARNING: Authentication attempt failed for user manager@umbrella.com from IP 192.168.1.207
+
+[2026-05-06 14:02:10] production.WARNING: Queue connection redis has 1341 pending jobs
+
+[2026-05-06 14:03:23] production.WARNING: Slow query detected: 5798ms on scorm_attempts table
+
+[2026-05-06 14:12:12] production.INFO: Queue worker restarted successfully
+
+[2026-05-06 14:16:19] production.INFO: Mail transport connection restored
+
+[2026-05-06 14:19:56] production.INFO: Redis connection re-established
+
+[2026-05-06 14:25:45] production.INFO: Mail transport connection restored
+
+[2026-05-06 14:31:21] production.INFO: Mail transport connection restored
+
+[2026-05-06 14:35:43] production.INFO: Horizon restarted successfully
+
+[2026-05-06 14:36:44] production.INFO: Queued job completed {"job_id":19880}
+
+[2026-05-06 14:37:20] production.INFO: Queued job completed {"job_id":95477}
+
+[2026-05-06 14:38:20] production.INFO: Health check passed for service laravel
+
+[2026-05-06 14:39:51] production.INFO: Queued job completed {"job_id":38016}
+
+[2026-05-06 14:40:42] production.INFO: Health check passed for service laravel
+
+[2026-05-06 14:41:45] production.INFO: Health check passed for service laravel
+
+[2026-05-06 14:43:44] production.INFO: SCORM manifest parsed successfully
+
+[2026-05-06 14:44:38] production.INFO: Queued job completed {"job_id":48890}
+
+[2026-05-06 14:46:22] production.INFO: Email delivered to 1959@example.com
+
+[2026-05-06 14:46:59] production.INFO: SCORM manifest parsed successfully
+
+[2026-05-06 14:47:36] production.INFO: SCORM manifest parsed successfully
+
+[2026-05-06 14:48:14] production.INFO: SCORM manifest parsed successfully
+
+[2026-05-06 14:49:35] production.INFO: Queued job completed {"job_id":25713}
+
+[2026-05-06 14:51:24] production.INFO: Email delivered to 8261@example.com
+
+[2026-05-06 14:52:27] production.INFO: SCORM manifest parsed successfully
+
+[2026-05-06 14:53:13] production.ERROR: SQLSTATE[HY000] [1040] Too many connections
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/ReportController.php(195): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 14:54:02] production.ERROR: SQLSTATE[HY000] [1040] Too many connections
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Jobs/SendCertificateMail.php(48): Illuminate\\Database\\Connection->select()
+
+
+[2026-05-06 14:54:32] production.ERROR: SQLSTATE[HY000] [1040] Too many connections
+{"exception":"Illuminate\\Database\\QueryException"}
+[stacktrace]
+#0 /var/www/app/vendor/laravel/framework/src/Illuminate/Database/Connection.php(829): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /var/www/app/app/Http/Controllers/UserController.php(48): Illuminate\\Database\\Connection->select()
+

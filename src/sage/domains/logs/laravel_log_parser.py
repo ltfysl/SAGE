@@ -15,11 +15,6 @@ LOG_LINE_RE = re.compile(
     r'(\w+)\.(\w+):\s+(.*)'
 )
 
-# Stack trace frame pattern
-STACK_FRAME_RE = re.compile(r'^#\d+\s+')
-STACK_TRACE_HEADER_RE = re.compile(r'^\[stacktrace\]|^Stack trace:')
-EXCEPTION_HEADER_RE = re.compile(r'^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]\s+\w+\.\w+:')
-
 
 def parse_log_file(file_path: str | Path) -> list[dict]:
     """Parse a Laravel log file into structured log blocks.
@@ -78,18 +73,35 @@ def _finalize_block(block: dict):
     raw = "\n".join(block["raw_lines"])
     block["raw_block"] = raw
 
-    # Extract exception class from message or stack trace
-    exc_match = re.search(r'"exception":"([^"]+)"', raw)
+    # Extract exception class from the "exception" JSON field
+    # Handles both: {"exception":"Illuminate\\Database\\QueryException"}
+    #          and: {"exception":'"Illuminate\\Database\\QueryException"'}
+    exc_match = re.search(r'"exception":"([^"]*)"', raw)
     if exc_match:
-        block["exception"] = exc_match.group(1).replace("\\\\", "\\")
+        raw_exc = exc_match.group(1)
+        # Strip any wrapping quotes, backslashes
+        raw_exc = raw_exc.strip().strip('\'"').replace('\\\\', '\\')
+        # Decode double-backslashes
+        block["exception"] = raw_exc
     else:
-        # Look for exception class in message
-        exc_match = re.search(r'((?:[A-Z][a-z]*\\\\)+[A-Z][a-zA-Z]+)', raw)
+        # Fallback: look for exception class in common Laravel namespace
+        exc_match = re.search(
+            r'((?:Illuminate|Symfony|App)\\\\(?:[A-Z][a-z]*\\\\)*[A-Z][a-zA-Z]+)',
+            raw
+        )
         if exc_match:
-            block["exception"] = exc_match.group(1)
+            block["exception"] = exc_match.group(1).replace('\\\\', '\\')
+        else:
+            # Even looser fallback
+            exc_match = re.search(
+                r'\b([A-Z][a-zA-Z]*Exception)\b',
+                raw
+            )
+            if exc_match:
+                block["exception"] = exc_match.group(1)
 
     # Extract file from stack trace
-    file_match = re.search(r'#\d+\s+(/[^:(]+)', raw)
+    file_match = re.search(r'#\d+\s+(/[^:(]+\.[a-z]+)', raw)
     if file_match:
         block["file"] = file_match.group(1)
 
