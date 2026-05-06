@@ -46,6 +46,13 @@ experiments/
 
 # HF model cache when stored locally
 /models/hf_cache/
+
+# Trained model weights (too large for Git)
+*.safetensors
+models/neural-sentence-compiler-*/
+
+# Uploads
+.uploads/
 /laravel.log
 
 # Next.js app runtime
