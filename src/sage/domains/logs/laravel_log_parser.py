@@ -1,7 +1,7 @@
 """Laravel log parser for SAGE Incident Lens.
 
 Parses Laravel/PHP log files into structured log blocks.
-Handles multiline stack traces and groups them with their parent log line.
+Handles multiline stack traces, multiline messages, and [object] exception format.
 """
 
 from __future__ import annotations
@@ -17,25 +17,15 @@ LOG_LINE_RE = re.compile(
 
 
 def parse_log_file(file_path: str | Path) -> list[dict]:
-    """Parse a Laravel log file into structured log blocks.
-
-    Each block is a dict with:
-        timestamp, environment, level, message, exception, file, line_number,
-        raw_block (full multiline text), start_char, end_char
-
-    Multiline stack traces are grouped with their parent log line.
-    """
+    """Parse a Laravel log file into structured log blocks."""
     file_path = Path(file_path)
     text = file_path.read_text(errors="replace")
-
     blocks = []
     current_block = None
 
     for line in text.split("\n"):
-        # Check if this line starts a new log entry
         m = LOG_LINE_RE.match(line)
         if m:
-            # Save previous block
             if current_block is not None:
                 _finalize_block(current_block)
                 blocks.append(current_block)
@@ -54,61 +44,81 @@ def parse_log_file(file_path: str | Path) -> list[dict]:
                 "end_char": len(line),
             }
         elif current_block is not None:
-            # Continuation line (stack trace, message continuation)
             current_block["raw_lines"].append(line)
 
-    # Don't forget the last block
     if current_block is not None:
         _finalize_block(current_block)
         blocks.append(current_block)
 
-    # Calculate character offsets
     _compute_offsets(blocks, text)
-
     return blocks
 
 
 def _finalize_block(block: dict):
-    """Extract exception and file info from a log block."""
+    """Extract exception, file, and line from a log block."""
     raw = "\n".join(block["raw_lines"])
     block["raw_block"] = raw
 
-    # Extract exception class from the "exception" JSON field
-    # Handles both: {"exception":"Illuminate\\Database\\QueryException"}
-    #          and: {"exception":'"Illuminate\\Database\\QueryException"'}
+    # ── Exception extraction ──
+    # Format 1: {"exception":"[object] (ClassName(code: N): message...)"}
+    # Format 2: {"exception":"ClassName\\..."}  (simple JSON string)
+    # Format 3: exception class embedded in the message itself
+
     exc_match = re.search(r'"exception":"([^"]*)"', raw)
     if exc_match:
         raw_exc = exc_match.group(1)
-        # Strip any wrapping quotes, backslashes
-        raw_exc = raw_exc.strip().strip('\'"').replace('\\\\', '\\')
-        # Decode double-backslashes
-        block["exception"] = raw_exc
+        # Strip [object] prefix and extract class name
+        exc_class = _extract_exception_class(raw_exc)
+        block["exception"] = exc_class
     else:
-        # Fallback: look for exception class in common Laravel namespace
-        exc_match = re.search(
-            r'((?:Illuminate|Symfony|App)\\\\(?:[A-Z][a-z]*\\\\)*[A-Z][a-zA-Z]+)',
-            raw
-        )
-        if exc_match:
-            block["exception"] = exc_match.group(1).replace('\\\\', '\\')
-        else:
-            # Even looser fallback
-            exc_match = re.search(
-                r'\b([A-Z][a-zA-Z]*Exception)\b',
-                raw
-            )
-            if exc_match:
-                block["exception"] = exc_match.group(1)
+        # Look for exception class in the raw block
+        exc_class = _extract_exception_class_from_raw(raw)
+        block["exception"] = exc_class
 
-    # Extract file from stack trace
+    # ── File extraction from stacktrace ──
     file_match = re.search(r'#\d+\s+(/[^:(]+\.[a-z]+)', raw)
     if file_match:
         block["file"] = file_match.group(1)
 
-    # Extract line number
+    # ── Line number ──
     line_match = re.search(r'#\d+\s+/[^(]+\((\d+)\)', raw)
     if line_match:
         block["line_number"] = int(line_match.group(1))
+
+
+def _extract_exception_class(raw_exc: str) -> str | None:
+    """Extract exception class name from [object] (ClassName(...)) or simple string."""
+    if not raw_exc:
+        return None
+    # Try [object] (ClassName(code: ...)) format
+    m = re.match(r'\[object\]\s*\(([^(]+)', raw_exc)
+    if m:
+        cls = m.group(1).strip()
+        # Normalize backslashes
+        cls = cls.replace('\\', '\\\\')  # store with double-backslashes for consistency
+        return cls
+    # Try simple class name
+    m = re.match(r'([A-Z][\w\\]+(?:Exception|Error))', raw_exc)
+    if m:
+        return m.group(1).replace('\\', '\\\\')
+    # Try to find any Exception/Error class
+    m = re.search(r'([A-Z][\w\\]*(?:Exception|Error))', raw_exc)
+    if m:
+        return m.group(1).replace('\\', '\\\\')
+    return None
+
+
+def _extract_exception_class_from_raw(raw: str) -> str | None:
+    """Fallback: extract exception class from any location in the raw block."""
+    # Look for [object] (ClassName pattern
+    m = re.search(r'\[object\]\s*\(([^(]+)', raw)
+    if m:
+        return m.group(1).strip().replace('\\', '\\\\')
+    # Look for common Laravel exception namespaces
+    m = re.search(r'((?:Illuminate|Symfony|App)\\\\(?:[A-Z][a-z]*\\\\)*[A-Z][a-zA-Z]+)', raw)
+    if m:
+        return m.group(1)
+    return None
 
 
 def _compute_offsets(blocks: list[dict], full_text: str):
