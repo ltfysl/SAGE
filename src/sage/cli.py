@@ -1165,6 +1165,149 @@ def test_forward_cmd(
     console.print(f"[green]Generated: {result}[/]")
     console.print("[bold green]OK — PyTorch + Transformers working on this machine[/]")
     console.print(f"[bold]A:[/] [green]{answer}[/]")
+
+def _sanitize(text: str, max_len: int = 500) -> str:
+    """Remove control characters from text for safe JSON output."""
+    if not text:
+        return ""
+    text = text.replace(chr(10), " ").replace(chr(13), " ").replace(chr(9), " ")
+    return text[:max_len]
+
+
+def _time_range(first: str | None, last: str | None) -> str:
+    if not first or not last:
+        return "N/A"
+    try:
+        from datetime import datetime as dt
+        f = dt.strptime(first, "%Y-%m-%d %H:%M:%S")
+        l = dt.strptime(last, "%Y-%m-%d %H:%M:%S")
+        diff = l - f
+        hours = diff.total_seconds() / 3600
+        if hours < 1:
+            return f"{int(diff.total_seconds() // 60)} minutes"
+        elif hours < 24:
+            return f"{hours:.1f} hours"
+        else:
+            return f"{hours / 24:.1f} days"
+    except:
+        return f"{first} -> {last}"
+
+
+def _build_json_output(file_path, blocks, ops, state_dict):
+    """Build structured JSON output for the logs-analyze command."""
+    from collections import Counter
+
+    cat_data = {}
+    for op in ops:
+        cat = op.get('op', 'UNKNOWN')
+        ts = op.get('timestamp', '')
+        ev = _sanitize(op.get('evidence', {}).get('span', ''), 240)
+        msg = _sanitize(op.get('message', ''), 200)
+        if cat not in cat_data:
+            cat_data[cat] = {'category': cat, 'count': 0, 'first_seen': ts, 'last_seen': ts, 'evidence': []}
+        cat_data[cat]['count'] += 1
+        if ts < cat_data[cat]['first_seen']:
+            cat_data[cat]['first_seen'] = ts
+        if ts > cat_data[cat]['last_seen']:
+            cat_data[cat]['last_seen'] = ts
+        if len(cat_data[cat]['evidence']) < 3:
+            cat_data[cat]['evidence'].append({'message': msg, 'span': ev})
+
+    categories = sorted(cat_data.values(), key=lambda x: -x['count'])
+
+    exc_data = {}
+    for op in ops:
+        exc = op.get('exception', '') or 'Unknown'
+        ts = op.get('timestamp', '')
+        if exc not in exc_data:
+            exc_data[exc] = {'exception': exc, 'count': 0, 'first_seen': ts, 'last_seen': ts, 'category': op.get('op', ''), 'evidence': []}
+        exc_data[exc]['count'] += 1
+        if ts < exc_data[exc]['first_seen']:
+            exc_data[exc]['first_seen'] = ts
+        if ts > exc_data[exc]['last_seen']:
+            exc_data[exc]['last_seen'] = ts
+        if len(exc_data[exc]['evidence']) < 2:
+            exc_data[exc]['evidence'].append(_sanitize(op.get('evidence', {}).get('span', ''), 200))
+
+    top_exceptions = sorted(exc_data.values(), key=lambda x: -x['count'])[:10]
+
+    seen_cats = set()
+    timeline = []
+    for op in ops:
+        cat = op.get('op', '')
+        if cat not in seen_cats or cat == 'RECOVERY_EVENT':
+            seen_cats.add(cat)
+            timeline.append({
+                'timestamp': op.get('timestamp', ''),
+                'category': cat,
+                'message': _sanitize(op.get('message', ''), 120),
+                'evidence': {'span': _sanitize(op.get('evidence', {}).get('span', ''), 240)},
+            })
+            if len(timeline) >= 30:
+                break
+    timeline.sort(key=lambda x: x['timestamp'])
+
+    from sage.domains.logs.incident_renderer import _infer_impact, _build_checklist
+    impact = _infer_impact(ops)
+    exc_counts = {e['exception']: e['count'] for e in top_exceptions}
+    checklist = _build_checklist({c['category']: c for c in categories}, exc_counts)
+
+    top_cat = max(state_dict.get('error_count_by_type', {}), key=state_dict.get('error_count_by_type', {}).get, default='N/A')
+
+    total = state_dict.get('total_errors', 0)
+    if total > 50:
+        severity = 'critical'
+    elif total > 10:
+        severity = 'high'
+    elif total > 5:
+        severity = 'medium'
+    else:
+        severity = 'low'
+
+    result = {
+        'summary': {
+            'first_error': state_dict.get('first_error_at'),
+            'last_error': state_dict.get('last_error_at'),
+            'duration': _time_range(state_dict.get('first_error_at'), state_dict.get('last_error_at')),
+            'total_events': total,
+            'top_exception': state_dict.get('top_exception'),
+            'top_category': top_cat,
+            'most_affected_component': ', '.join(state_dict.get('affected_components', [])) or 'laravel',
+            'severity': severity,
+        },
+        'categories': categories,
+        'top_exceptions': top_exceptions,
+        'timeline': timeline[:20],
+        'evidence_highlights': [
+            {'category': op.get('op', ''), 'timestamp': op.get('timestamp', ''),
+             'message': _sanitize(op.get('message', ''), 200),
+             'file': op.get('file', ''), 'line': op.get('line_number', 0)}
+            for op in ops[:10]
+        ],
+        'likely_impact': [{'area': k, 'detail': v} for k, v in impact.items()],
+        'checklist': checklist,
+        'meta': {
+            'parser_mode': 'deterministic',
+            'evidence_bound': True,
+            'source_file': str(file_path),
+            'raw_lines': sum(len(b.get('raw_lines', [])) for b in blocks),
+            'parsed_blocks': len(blocks),
+            'compiled_operations': len(ops),
+        },
+    }
+
+    # Recursively sanitize all strings in the result
+    def _rec_sanitize(obj):
+        if isinstance(obj, str):
+            return obj.replace(chr(10), ' ').replace(chr(13), ' ').replace(chr(9), ' ')
+        elif isinstance(obj, dict):
+            return {k: _rec_sanitize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [_rec_sanitize(v) for v in obj]
+        return obj
+    return _rec_sanitize(result)
+
+
 # ── logs ──────────────────────────────────────────────────────────
 
 @app.command("logs-parse")
@@ -1241,7 +1384,7 @@ def logs_report_cmd(
     text_report = render_incident_report(state_dict)
     console.print(f"\n{text_report}")
 
-    md = render_markdown_report(state_dict, output)
+    md = render_markdown_report(state_dict, ops, output)
     console.print(f"\n[green]Markdown report saved to {output}[/]")
 
 
@@ -1266,6 +1409,49 @@ def logs_ask_cmd(
     answer = state.answer(question)
     console.print(f"[bold]Q:[/] {question}")
     console.print(f"[bold]A:[/] [green]{answer}")
+
+@app.command("logs-analyze")
+def logs_analyze_cmd(
+    file: Path = typer.Option(..., "--file", "-f", help="Path to a Laravel log file"),
+    format: str = typer.Option("report", "--format", help="Output format: report or json"),
+    output: Path = typer.Option(Path("data/reports/incident_report.md"), "--output", "-o"),
+):
+    """Analyze a Laravel log and output report (Markdown) or structured JSON."""
+    from sage.domains.logs.laravel_log_parser import parse_log_file
+    from sage.domains.logs.log_compiler import LaravelLogCompiler
+    from sage.domains.logs.incident_engine import IncidentState
+    from sage.domains.logs.incident_renderer import render_incident_report, render_markdown_report
+    import json
+
+    blocks = parse_log_file(file)
+    compiler = LaravelLogCompiler()
+    ops = compiler.compile(blocks)
+    state = IncidentState()
+    for op in ops:
+        state.apply(op)
+    state.finalize()
+    state_dict = state.to_dict()
+
+    if format == "json":
+        result = _build_json_output(file, blocks, ops, state_dict)
+        # Force-sanitize all strings before serialization
+        def _force_sanitize(obj):
+            if isinstance(obj, str):
+                return obj.replace(chr(10), ' ').replace(chr(13), ' ')
+            elif isinstance(obj, dict):
+                return {k: _force_sanitize(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [_force_sanitize(v) for v in obj]
+            return obj
+        result = _force_sanitize(result)
+        import sys as _sys; _sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    else:
+        text_report = render_incident_report(state_dict)
+        console.print(f"\n{text_report}")
+        md = render_markdown_report(state_dict, ops, output)
+        console.print(f"\n[green]Markdown report saved to {output}[/]")
+
+
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")

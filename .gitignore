@@ -46,3 +46,10 @@ experiments/
 # HF model cache when stored locally
 /models/hf_cache/
 /laravel.log
+
+# Next.js app runtime
+/apps/sage-incident-lens-web/.next/
+/apps/sage-incident-lens-web/node_modules/
+/apps/sage-incident-lens-web/.uploads/
+/apps/sage-incident-lens-web/next-env.d.ts
+/apps/sage-incident-lens-web/package-lock.json
