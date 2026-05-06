@@ -1,214 +1,78 @@
-# SAGE: State-Aware Generative Engine
+# SAGE — State-Aware Generative Engine
 
-SAGE is an experimental alternative to direct next-token-only reasoning.
-
-Instead of asking a model to directly answer from long text, SAGE asks a model
-to **compile** the text into executable operations. A deterministic state engine
-executes those operations, verifies consistency, and renders the final answer.
-
-**Core hypothesis**: As context grows, verified state transitions degrade slower
-than direct next-token answering.
-
-```
-Input Text → Compiler → JSON Operations → Verifier → Engine → Verified Answer → Renderer
-```
-
-> SAGE is not a RAG system, not a memory system, and not a long-context attention trick.
-> SAGE is based on the idea that the primitive unit of reasoning should not be the
-> next token, but the next verified state transition.
-
-## Project Status
-
-- **Deterministic Engine**: Ready
-- **Rule Compiler**: Ready
-- **Synthetic Data Generator**: Ready
-- **Model Compiler (Training)**: Ready
-- **Baselines**: Ready
-- **Evaluation**: Ready
-- **Optimization / Scaling**: Pending
-
-## Installation
-
-```bash
-# Clone and enter the project
-cd SAGE
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install in dev mode
-pip install -e .
-```
-
-For GPU support:
-```bash
-pip install -e ".[gpu]"
-```
-
-## Quick Start
-
-```bash
-# Show help
-python -m sage.cli info
-
-# Generate 1000 training samples
-python -m sage.cli generate-data --samples 1000 --max-events 50
-
-# Generate all benchmark files
-python -m sage.cli generate-data --samples 100 --max-events 50 --benchmarks
-
-# Demo the pipeline on a simple story
-python -m sage.cli demo --text "Latif has 5 coins. Arno gives Latif 3 coins. Latif spends 2 coins. Question: How many coins does Latif have?"
-
-# Demo with debug output
-python -m sage.cli demo --debug
-
-# Quick evaluation with rule compiler
-python -m sage.cli eval-rule --benchmark data/benchmarks/easy.jsonl
-
-# Train the compiler model
-python -m sage.cli train-compiler --train data/generated/sage_train.jsonl --dev data/generated/sage_dev.jsonl --epochs 3
-
-# Train the direct baseline
-python -m sage.cli train-direct --train data/generated/sage_train.jsonl --dev data/generated/sage_dev.jsonl --epochs 3
-
-# Full evaluation
-python -m sage.cli eval --benchmark data/benchmarks/easy.jsonl --compiler checkpoints/compiler --direct checkpoints/direct
-```
+Evidence-bound compilation for code, logs, and synthetic event worlds.
 
 ## Architecture
 
-### Pipeline Components
+SAGE compiles unstructured input into **verified state operations** with **evidence links** back to source text. No black-box AI — every operation has a source span, line number, and confidence marker.
 
-| Stage | Component | Role |
-|-------|-----------|------|
-| 1 | **Compiler** | Converts NL story → JSON operation sequence |
-| 2 | **Verifier** | Validates JSON syntax and operation schemas |
-| 3 | **Engine** | Deterministically executes operations on state |
-| 4 | **Renderer** | Converts verified state → human-readable answer |
-
-### Operation Types
-
-| Op | Description | Example |
-|----|-------------|---------|
-| `SET` | Set a state value | `{"op":"SET","target":"Latif.coins","value":5}` |
-| `ADD` | Increase a state value | `{"op":"ADD","target":"Latif.coins","value":3}` |
-| `SUB` | Decrease a state value | `{"op":"SUB","target":"Latif.coins","value":2}` |
-| `TRANSFER` | Move value between targets | `{"op":"TRANSFER","from":"A.x","to":"B.x","value":5}` |
-| `QUERY` | Read a state value | `{"op":"QUERY","target":"Latif.coins"}` |
-
-### Compilers
-
-1. **Rule Compiler** (`RuleCompiler`): Deterministic reference. Uses regex patterns to parse known sentence templates. Perfect accuracy on synthetic data (100% JSON validity).
-
-2. **Model Compiler** (`ModelCompiler`): Seq2seq transformer (flan-t5-small) trained to map stories → JSON ops. The experimental target.
-
-### Baselines
-
-1. **Direct Answer Model**: Same small model trained to answer directly from text.
-2. **Heuristic Baseline**: Simple regex-based answer extraction.
-
-## Example
-
-**Input:**
 ```
-Latif has 5 coins. Arno gives Latif 3 coins. Latif spends 2 coins.
-Question: How many coins does Latif have?
+Input → Compiler → Operations (with evidence) → Verifier → Engine → Answer
 ```
 
-**Compiled Operations:**
-```json
-[
-  {"op": "SET", "target": "Latif.coins", "value": 5},
-  {"op": "ADD", "target": "Latif.coins", "value": 3},
-  {"op": "SUB", "target": "Latif.coins", "value": 2},
-  {"op": "QUERY", "target": "Latif.coins"}
-]
+## Modules
+
+### 1. SAGE Core (synthetic CoinWorld)
+Deterministic rule compiler + neural DSL compiler for synthetic event-world stories.
+
+```bash
+export PYTHONPATH=src
+python3 -m sage.cli generate-data --samples 5000 --max-events 50 --benchmarks
+python3 -m sage.cli eval-rule --benchmark data/benchmarks/easy.jsonl
+python3 -m sage.cli eval-neural-fast --model models/neural-sentence-compiler-dsl --device auto
 ```
 
-**Execution Trace:**
-```
-Step 0: SET Latif.coins = 5       → {Latif.coins: 5}
-Step 1: ADD Latif.coins + 3       → {Latif.coins: 8}
-Step 2: SUB Latif.coins - 2       → {Latif.coins: 6}
-Step 3: QUERY Latif.coins         → answer = 6
-```
+### 2. SAGE Incident Lens (Laravel log analysis)
+Local-first log analyzer. Turn messy Laravel logs into verified incident timelines.
 
-**Rendered Answer:**
-```
-Latif has 6 coins.
+```bash
+python3 -m sage.cli logs-report --file data/samples/laravel_realistic_mixed_incident.log
+python3 -m sage.cli logs-analyze --file data/samples/laravel_realistic_mixed_incident.log --format json
+python3 -m sage.cli logs-ask --file data/samples/laravel_realistic_mixed_incident.log --question "top exception"
 ```
 
-## Synthetic Data
+### 3. SAGE CodeMap (framework-agnostic code mapping)
+Static-analysis architecture maps for any codebase. Supports PHP/Laravel, JS/TS/Next.js/Vue, Python/FastAPI/Django, Rust/Cargo.
 
-The synthetic event world generates stories about people, objects, and quantities.
+```bash
+python3 -m sage.cli codemap-scan --path /path/to/project --output data/codemaps/map.json
+python3 -m sage.cli codemap-ask --map data/codemaps/map.json --question "What writes to course_progresses?"
+python3 -m sage.cli codemap-summary --map data/codemaps/map.json
+```
 
-### Difficulty Levels
+### 4. SAGE Incident Lens Web (Next.js dashboard)
+Premium dark-themed web UI for log analysis.
 
-| Level | Events | Noise | Distractors |
-|-------|--------|-------|-------------|
-| easy | 3–5 | 0% | 0 |
-| medium | 10–25 | 10% | 0–2 |
-| hard | 50–100 | 20% | 2–5 |
-| long | 200–500 | 30% | 5–10 |
-| noise_stress | 20–50 | 50% | 5–15 |
+```bash
+cd apps/sage-incident-lens-web
+npm install
+npm run dev
+# Open http://localhost:3000
+```
 
-### Event Types
+## Neural Training
 
-- **HAS**: Person has X amount
-- **GIVES**: Person gives to another
-- **SPENDS**: Person spends/loses
-- **FINDS**: Person finds/gains
-- **LOSES**: Person loses
-- **BUYS**: Person buys from another
-- **SELLS**: Person sells to another
+Train a sentence-level compiler for CoinWorld:
 
-## Evaluation Metrics
+```bash
+export PYTHONPATH=src
+export HF_HOME=$(pwd)/models/hf_cache
+export PYTORCH_ENABLE_MPS_FALLBACK=1
 
-| Metric | Description |
-|--------|-------------|
-| `answer_exact_match` | Predicted answer == ground truth |
-| `compiled_json_valid_rate` | % of outputs that are valid JSON |
-| `compiled_ops_valid_rate` | % of outputs with valid op schemas |
-| `execution_success_rate` | % of outputs that execute without error |
-| `accuracy_by_num_events` | Accuracy broken down by event count |
-| `accuracy_by_noise_level` | Accuracy broken down by noise level |
-| `latency_ms` | Wall-clock time per sample |
+# Generate training data
+python3 -m sage.cli generate-neural-training-data --sentence-samples 30000 --target-format dsl
 
-## Key Result to Watch
+# Train (flan-t5-small, ~60 min on MPS, ~30 min on T4 GPU)
+python3 -m sage.cli train-neural-sentence-compiler \
+  --train data/generated/neural_sentence_train.jsonl \
+  --dev data/generated/neural_sentence_dev.jsonl \
+  --model google/flan-t5-small --epochs 3 --batch-size 4 \
+  --device auto --target-format dsl
 
-The critical benchmark result: **Does SAGE degrade slower than direct answering as event count and noise increase?**
+# Evaluate
+python3 -m sage.cli eval-neural-fast --model models/neural-sentence-compiler-dsl --device auto
+```
 
-If yes: verified state transitions are more robust than direct next-token reasoning for long structured contexts.
+## Key Principle
 
-If no: the hypothesis needs revision.
-
-## Future Work
-
-- Multi-hop reasoning across multiple state domains
-- Recursive compilation (nested state queries)
-- Hybrid: compiler delegates to direct-answer for ambiguous cases
-- Larger compiler models (flan-t5-base, flan-t5-large)
-- Real-world datasets (bAbI, HotpotQA, etc.)
-- Streaming compilation for very long documents
-- Learned verifier that provides feedback to the compiler
-- Integration with retrieval for fact verification
-- Efficient attention variants specific to compiler tasks
-
-## Limitations
-
-- Synthetic data only (event-world domain)
-- Small model capacity limits generalization
-- Rule compiler is template-specific
-- No handling of temporal reasoning
-- No handling of negation or counterfactuals
-- Single-turn only (no dialogue context)
-- Currently English-only
-
-## License
-
-MIT
+**No operation executes unless the event is strongly evidence-supported.**
