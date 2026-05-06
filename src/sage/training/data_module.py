@@ -63,7 +63,6 @@ class SAGEDataset(Dataset):
 
         if self.mode == "compile":
             source = f"compile: {story}"
-            # ops is already a list of dicts; serialise compactly
             target = json.dumps(record["ops"], separators=(",", ":"))
         else:  # direct_answer
             source = f"answer: {story}"

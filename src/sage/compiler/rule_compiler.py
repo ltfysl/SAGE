@@ -54,7 +54,7 @@ SUB_VERBS = {"spends", "uses", "consumes", "loses", "drops", "misplaces",
              "gives away", "parts with", "accidentally loses"}
 GIVE_VERBS = {"gives", "hands", "passes", "offers", "transfers"}
 RECEIVE_VERBS = {"receives", "gets", "takes", "is given"}
-BUY_VERBS = {"buys", "purchases"}
+BUY_VERBS = {"buys", "purchases", "pays"}
 SELL_VERBS = {"sells"}
 
 

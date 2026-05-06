@@ -1,0 +1,236 @@
+{
+  "benchmarks": {
+    "easy": {
+      "oracle_accuracy": 1.0,
+      "rule_accuracy": 1.0,
+      "direct_accuracy": 0.35,
+      "num_samples": 100,
+      "avg_events": 5.58,
+      "rule_buckets": {
+        "1-5": {
+          "samples": 43,
+          "accuracy": 1.0
+        },
+        "6-25": {
+          "samples": 57,
+          "accuracy": 1.0
+        },
+        "26-100": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "101-500": {
+          "samples": 0,
+          "accuracy": 0.0
+        }
+      },
+      "direct_buckets": {
+        "1-5": {
+          "samples": 43,
+          "accuracy": 0.32558139534883723
+        },
+        "6-25": {
+          "samples": 57,
+          "accuracy": 0.3684210526315789
+        },
+        "26-100": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "101-500": {
+          "samples": 0,
+          "accuracy": 0.0
+        }
+      }
+    },
+    "medium": {
+      "oracle_accuracy": 1.0,
+      "rule_accuracy": 1.0,
+      "direct_accuracy": 0.33,
+      "num_samples": 100,
+      "avg_events": 20.97,
+      "rule_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 78,
+          "accuracy": 1.0
+        },
+        "26-100": {
+          "samples": 22,
+          "accuracy": 1.0
+        },
+        "101-500": {
+          "samples": 0,
+          "accuracy": 0.0
+        }
+      },
+      "direct_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 78,
+          "accuracy": 0.3717948717948718
+        },
+        "26-100": {
+          "samples": 22,
+          "accuracy": 0.18181818181818182
+        },
+        "101-500": {
+          "samples": 0,
+          "accuracy": 0.0
+        }
+      }
+    },
+    "hard": {
+      "oracle_accuracy": 1.0,
+      "rule_accuracy": 1.0,
+      "direct_accuracy": 0.26,
+      "num_samples": 50,
+      "avg_events": 84.74,
+      "rule_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "26-100": {
+          "samples": 40,
+          "accuracy": 1.0
+        },
+        "101-500": {
+          "samples": 10,
+          "accuracy": 1.0
+        }
+      },
+      "direct_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "26-100": {
+          "samples": 40,
+          "accuracy": 0.225
+        },
+        "101-500": {
+          "samples": 10,
+          "accuracy": 0.4
+        }
+      }
+    },
+    "long": {
+      "oracle_accuracy": 1.0,
+      "rule_accuracy": 1.0,
+      "direct_accuracy": 0.32,
+      "num_samples": 50,
+      "avg_events": 407.1,
+      "rule_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "26-100": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "101-500": {
+          "samples": 50,
+          "accuracy": 1.0
+        }
+      },
+      "direct_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "26-100": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "101-500": {
+          "samples": 50,
+          "accuracy": 0.32
+        }
+      }
+    },
+    "adversarial": {
+      "oracle_accuracy": 1.0,
+      "rule_accuracy": 1.0,
+      "direct_accuracy": 0.31,
+      "num_samples": 100,
+      "avg_events": 15.73,
+      "rule_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 100,
+          "accuracy": 1.0
+        },
+        "26-100": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "101-500": {
+          "samples": 0,
+          "accuracy": 0.0
+        }
+      },
+      "direct_buckets": {
+        "1-5": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "6-25": {
+          "samples": 100,
+          "accuracy": 0.31
+        },
+        "26-100": {
+          "samples": 0,
+          "accuracy": 0.0
+        },
+        "101-500": {
+          "samples": 0,
+          "accuracy": 0.0
+        }
+      }
+    }
+  },
+  "context_advantage": {
+    "threshold_90": {
+      "sage_max_events": 407,
+      "direct_max_events": 0,
+      "advantage_ratio": Infinity
+    },
+    "threshold_80": {
+      "sage_max_events": 407,
+      "direct_max_events": 0,
+      "advantage_ratio": Infinity
+    },
+    "threshold_70": {
+      "sage_max_events": 407,
+      "direct_max_events": 0,
+      "advantage_ratio": Infinity
+    }
+  }
+}

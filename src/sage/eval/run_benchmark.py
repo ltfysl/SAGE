@@ -65,14 +65,23 @@ def _ops_dicts_to_operations(op_dicts: list[dict]) -> list[Operation]:
 
 
 def _compute_diff(gt_ops: list[dict], comp_ops: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Compute missing and extra ops by (op+target+value) matching."""
+    """Compute missing and extra ops using count-based multiset diff."""
+    from collections import Counter
     def key(op):
         return (op.get("op"), op.get("target") or op.get("from", ""),
                 op.get("value"))
-    gt_keys = {key(o) for o in gt_ops}
-    comp_keys = {key(o) for o in comp_ops}
-    missing = [o for o in gt_ops if key(o) not in comp_keys]
-    extra = [o for o in comp_ops if key(o) not in gt_keys]
+    gt_counts = Counter(key(o) for o in gt_ops)
+    comp_counts = Counter(key(o) for o in comp_ops)
+    missing = []
+    extra = []
+    for k, count in gt_counts.items():
+        diff = count - comp_counts.get(k, 0)
+        if diff > 0:
+            missing.extend([o for o in gt_ops if key(o) == k][:diff])
+    for k, count in comp_counts.items():
+        diff = count - gt_counts.get(k, 0)
+        if diff > 0:
+            extra.extend([o for o in comp_ops if key(o) == k][:diff])
     return missing, extra
 
 

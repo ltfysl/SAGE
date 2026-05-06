@@ -1,0 +1,76 @@
+{
+  "benchmarks": {
+    "easy": {
+      "oracle": 1.0,
+      "rule": 1.0,
+      "hybrid": 1.0,
+      "sklearn_direct": 0.02,
+      "heuristic": 0.46,
+      "hybrid_fallback_rate": 0.0
+    },
+    "medium": {
+      "oracle": 1.0,
+      "rule": 1.0,
+      "hybrid": 1.0,
+      "sklearn_direct": 0.04,
+      "heuristic": 0.28,
+      "hybrid_fallback_rate": 0.04765751211631664
+    },
+    "hard": {
+      "oracle": 1.0,
+      "rule": 1.0,
+      "hybrid": 1.0,
+      "sklearn_direct": 0.04,
+      "heuristic": 0.26,
+      "hybrid_fallback_rate": 0.10053285968028419
+    },
+    "long": {
+      "oracle": 1.0,
+      "rule": 1.0,
+      "hybrid": 1.0,
+      "sklearn_direct": 0.06,
+      "heuristic": 0.32,
+      "hybrid_fallback_rate": 0.1302943904366047
+    },
+    "adversarial": {
+      "oracle": 1.0,
+      "rule": 1.0,
+      "hybrid": 0.76,
+      "sklearn_direct": 0.06,
+      "heuristic": 0.28,
+      "hybrid_fallback_rate": 0.1756440281030445
+    },
+    "ood_names": {
+      "oracle": 1.0,
+      "rule": 1.0,
+      "hybrid": 0.9,
+      "sklearn_direct": 0.02,
+      "heuristic": 0.44,
+      "hybrid_fallback_rate": 0.0
+    },
+    "ood_phrasing": {
+      "oracle": 1.0,
+      "rule": 0.2,
+      "hybrid": 0.32,
+      "sklearn_direct": 0.02,
+      "heuristic": 0.18,
+      "hybrid_fallback_rate": 0.019933554817275746
+    },
+    "ood_numbers": {
+      "oracle": 1.0,
+      "rule": 0.06,
+      "hybrid": 1.0,
+      "sklearn_direct": 0.02,
+      "heuristic": 0.06,
+      "hybrid_fallback_rate": 0.0
+    },
+    "ood_mixed": {
+      "oracle": 0.66,
+      "rule": 0.66,
+      "hybrid": 0.58,
+      "sklearn_direct": 0.08,
+      "heuristic": 0.2,
+      "hybrid_fallback_rate": 0.008583690987124463
+    }
+  }
+}

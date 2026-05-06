@@ -12,7 +12,6 @@ import torch
 from transformers import (
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
-    DataCollatorForSeq2Seq,
     EarlyStoppingCallback,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
@@ -77,13 +76,12 @@ def train_compiler(
         )
 
     # ------------------------------------------------------------------
-    # 4. Data collator
+    # 4. Data collator — use custom collate that handles lists properly
     # ------------------------------------------------------------------
-    data_collator = DataCollatorForSeq2Seq(
+    data_collator = get_collate_fn(
         tokenizer=tokenizer,
-        model=model,
-        padding=True,
-        max_length=config.max_input_length,
+        max_input_length=config.max_input_length,
+        max_output_length=config.max_output_length,
     )
 
     # ------------------------------------------------------------------

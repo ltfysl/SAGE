@@ -77,13 +77,13 @@ def train_direct_baseline(
         )
 
     # ------------------------------------------------------------------
-    # 4. Data collator
+    # 4. Data collator — use custom collate that handles strings properly
     # ------------------------------------------------------------------
-    data_collator = DataCollatorForSeq2Seq(
+    from sage.training.data_module import get_collate_fn
+    data_collator = get_collate_fn(
         tokenizer=tokenizer,
-        model=model,
-        padding=True,
-        max_length=config.max_input_length,
+        max_input_length=config.max_input_length,
+        max_output_length=config.max_output_length,
     )
 
     # ------------------------------------------------------------------

@@ -295,6 +295,6 @@ class DatasetWriter:
                 distractor_people=dp,
                 distractor_objects=do,
                 irrelevant_sentences=irr,
-                shuffle_surface=(noise > 0),
+                shuffle_surface=False,  # Don't shuffle benchmarks — ops must match text order
             )
             self.write_benchmark(records, name, benchmarks_dir)
