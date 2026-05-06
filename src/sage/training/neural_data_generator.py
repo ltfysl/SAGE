@@ -1,8 +1,15 @@
 """Neural training data generator for SAGE.
 
 Generates sentence-level and story-level training data for the neural compiler.
-Sentence format: "compile_sentence: {sentence}" → JSON array with 0 or 1 ops
-Story format: "compile_story: {story}" → JSON array with all ops
+Sentence format: "compile_sentence: {sentence}" → DSL or JSON target
+Story format: "compile_story: {story}" → DSL or JSON target
+
+Target format is controlled by --target-format: "dsl" (default) or "json".
+DSL examples:
+  SET|Alice.apples|5|span="Alice has 5 apples."
+  TRANSFER|Bob.gold|Charlie.gold|3|span="Bob gives 3 gold to Charlie."
+  QUERY|Alice.gold|span="How much gold does Alice have?"
+  NOOP
 """
 
 from __future__ import annotations
@@ -19,22 +26,42 @@ NUMBER_WORDS = {1:"one",2:"two",3:"three",4:"four",5:"five",6:"six",7:"seven",
                 19:"nineteen",20:"twenty"}
 
 
+def _op_to_dsl(op: dict) -> str:
+    """Convert a single operation dict to DSL format."""
+    if op["op"] == "QUERY":
+        target = op.get("target", "")
+        span = op.get("evidence", {}).get("span", "")
+        return f"QUERY|{target}|span={span}"
+    elif op["op"] == "TRANSFER":
+        from_t = op.get("from", "")
+        to_t = op.get("to", "")
+        val = op.get("value", 0)
+        span = op.get("evidence", {}).get("span", "")
+        return f"TRANSFER|{from_t}|{to_t}|{val}|span={span}"
+    else:  # SET, ADD, SUB
+        target = op.get("target", "")
+        val = op.get("value", 0)
+        span = op.get("evidence", {}).get("span", "")
+        return f"{op['op']}|{target}|{val}|span={span}"
+
+
 def generate_sentence_level_data(
     num_samples: int = 30000,
     include_ood: bool = True,
     include_adversarial: bool = True,
     seed: int = 42,
+    target_format: str = "dsl",
 ) -> list[dict]:
     """Generate sentence-level training examples.
     
-    Each record: {"source": "compile_sentence: ...", "target": "[...]"}
+    Each record: {"source": "compile_sentence: ...", "target": "..."}
     
     Distribution:
     - 40% in-domain sentences (from generated stories)
     - 20% OOD phrasing sentences
     - 15% OOD numbers (word numbers)
-    - 15% adversarial/non-event sentences (target: [])
-    - 10% noise/irrelevant sentences (target: [])
+    - 15% adversarial/non-event sentences
+    - 10% noise/irrelevant sentences
     """
     rng = random.Random(seed)
     gen = SyntheticWorldGenerator(seed=seed)
@@ -52,7 +79,10 @@ def generate_sentence_level_data(
             op = rc._parse_sentence(sent, story.story_text, known_names, known_objects)
             if op is not None:
                 # Single-op target
-                target = json.dumps([op], separators=(",", ":"))
+                if target_format == "dsl":
+                    target = _op_to_dsl(op)
+                else:
+                    target = json.dumps([op], separators=(",", ":"))
                 source = f"compile_sentence: {sent}"
                 records.append({"source": source, "target": target})
                 rc._track_names_objects(op, known_names, known_objects)
@@ -94,7 +124,10 @@ def generate_sentence_level_data(
                 sent = tmpl.format(person=person, amount=amt, obj=obj_form)
                 op = {"op":op_type,"target":f"{person}.{obj}","value":amt}
             
-            target = json.dumps([op], separators=(",", ":"))
+            if target_format == "dsl":
+                target = _op_to_dsl(op)
+            else:
+                target = json.dumps([op], separators=(",", ":"))
             source = f"compile_sentence: {sent}"
             records.append({"source": source, "target": target})
     
@@ -112,7 +145,10 @@ def generate_sentence_level_data(
                     rc._track_names_objects(op, known_names, known_objects)
                     # Replace digits with word numbers in source
                     word_sent = re.sub(r'\b(\d+)\b', lambda m: NUMBER_WORDS.get(int(m.group(1)), m.group(0)), sent)
-                    target = json.dumps([op], separators=(",", ":"))
+                    if target_format == "dsl":
+                        target = _op_to_dsl(op)
+                    else:
+                        target = json.dumps([op], separators=(",", ":"))
                     source = f"compile_sentence: {word_sent}"
                     records.append({"source": source, "target": target})
     
@@ -139,9 +175,10 @@ def generate_sentence_level_data(
             real_amt = rng.randint(1, 20)
             obj_form = singular if amt == 1 else obj
             sent = tmpl.format(person=person, amount=amt, obj=obj_form, other=other, real_amount=real_amt)
-            # Target is empty array — no operation for non-events
+            # No operation for non-events
+            target = "NOOP" if target_format == "dsl" else "[]"
             source = f"compile_sentence: {sent}"
-            records.append({"source": source, "target": "[]"})
+            records.append({"source": source, "target": target})
     
     # --- Noise sentences (10%) ---
     NOISE_SENTENCES = [
@@ -169,7 +206,8 @@ def generate_sentence_level_data(
     for i in range(int(num_samples * 0.1)):
         sent = rng.choice(NOISE_SENTENCES)
         source = f"compile_sentence: {sent}"
-        records.append({"source": source, "target": "[]"})
+        target = "NOOP" if target_format == "dsl" else "[]"
+        records.append({"source": source, "target": target})
     
     rng.shuffle(records)
     return records
@@ -179,10 +217,11 @@ def generate_story_level_data(
     num_samples: int = 10000,
     include_ood: bool = True,
     seed: int = 99,
+    target_format: str = "dsl",
 ) -> list[dict]:
     """Generate story-level training examples.
     
-    Each record: {"source": "compile_story: {story}", "target": "[...]"}
+    Each record: {"source": "compile_story: {story}", "target": "..."}
     """
     rng = random.Random(seed)
     gen = SyntheticWorldGenerator(seed=seed)
@@ -199,7 +238,10 @@ def generate_story_level_data(
         if not success or not ops:
             continue
         
-        target = json.dumps(ops, separators=(",", ":"))
+        if target_format == "dsl":
+            target = "\n".join(_op_to_dsl(o) for o in ops)
+        else:
+            target = json.dumps(ops, separators=(",", ":"))
         source = f"compile_story: {story.story_text}"
         records.append({"source": source, "target": target})
     
@@ -221,6 +263,7 @@ def generate_all_neural_data(
     sentence_samples: int = 30000,
     story_samples: int = 10000,
     seed: int = 42,
+    target_format: str = "dsl",
 ):
     """Generate all neural training data (sentence + story level)."""
     if output_dir is None:
@@ -230,7 +273,8 @@ def generate_all_neural_data(
     
     print("Generating sentence-level data...")
     sent_records = generate_sentence_level_data(
-        num_samples=sentence_samples, include_ood=True, include_adversarial=True, seed=seed
+        num_samples=sentence_samples, include_ood=True, include_adversarial=True,
+        seed=seed, target_format=target_format,
     )
     n = len(sent_records)
     split = int(n * 0.85)
@@ -240,7 +284,9 @@ def generate_all_neural_data(
     print(f"  Sentence dev: {n - split} samples")
     
     print("Generating story-level data...")
-    story_records = generate_story_level_data(num_samples=story_samples, seed=seed + 1)
+    story_records = generate_story_level_data(
+        num_samples=story_samples, seed=seed + 1, target_format=target_format,
+    )
     n2 = len(story_records)
     split2 = int(n2 * 0.85)
     write_neural_data(story_records[:split2], output_dir / "neural_story_train.jsonl")

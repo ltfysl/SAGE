@@ -9,6 +9,7 @@ import json, torch, logging, time
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from sage.training.device import resolve_device, describe_device, move_batch
 
 logger = logging.getLogger(__name__)
 
@@ -62,19 +63,16 @@ def train_neural_sentence_compiler(
     max_input_length: int = 256,
     max_output_length: int = 256,
     learning_rate: float = 5e-5,
-    use_cpu: bool = True,
+    device: str = "auto",
 ):
     """Train a neural sentence compiler model."""
     print(f"Loading {model_name}...")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
     
-    if not use_cpu and torch.cuda.is_available():
-        model = model.cuda()
-        device = "cuda"
-    else:
-        device = "cpu"
-    print(f"Device: {device}")
+    dev = resolve_device(device)
+    print(f"Device: {describe_device(dev)}")
+    model.to(dev)
     
     train_dataset = NeuralSentenceDataset(train_path)
     collate = get_collate_fn(tokenizer, max_input_length, max_output_length)
@@ -96,8 +94,7 @@ def train_neural_sentence_compiler(
     for epoch in range(num_epochs):
         total_loss = 0.0
         for batch in train_loader:
-            if device == "cuda":
-                batch = {k: v.cuda() for k, v in batch.items()}
+            batch = move_batch(batch, dev)
             
             optimizer.zero_grad()
             outputs = model(**batch)
@@ -117,8 +114,7 @@ def train_neural_sentence_compiler(
             dev_loss = 0.0
             with torch.no_grad():
                 for batch in dev_loader:
-                    if device == "cuda":
-                        batch = {k: v.cuda() for k, v in batch.items()}
+                    batch = move_batch(batch, dev)
                     outputs = model(**batch)
                     dev_loss += outputs.loss.item()
             print(f"  Epoch {epoch+1} | dev_loss={dev_loss/len(dev_loader):.4f}")

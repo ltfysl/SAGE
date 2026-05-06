@@ -911,11 +911,12 @@ def generate_neural_training_data_cmd(
     sentence_samples: int = typer.Option(30000, "--sentence-samples"),
     story_samples: int = typer.Option(10000, "--story-samples"),
     seed: int = typer.Option(42, "--seed"),
+    target_format: str = typer.Option("dsl", "--target-format", help="Target format: dsl or json"),
 ):
     """Generate enriched training data for the neural compiler."""
     from sage.training.neural_data_generator import generate_all_neural_data
     console.print("[bold blue]Generating Neural Training Data[/]")
-    generate_all_neural_data(output_dir, sentence_samples, story_samples, seed)
+    generate_all_neural_data(output_dir, sentence_samples, story_samples, seed, target_format=target_format)
     console.print("[green]Done.[/]")
 
 
@@ -931,8 +932,9 @@ def train_neural_sentence_compiler_cmd(
     max_input_length: int = typer.Option(256, "--max-input-length"),
     max_target_length: int = typer.Option(256, "--max-target-length"),
     output_dir: Path = typer.Option(Path("models/neural-sentence-compiler"), "--output-dir", "-o"),
-    use_cpu: bool = typer.Option(True, "--cpu/--gpu"),
+    device: str = typer.Option("auto", "--device", help="Device: auto, cuda, mps, cpu"),
     learning_rate: float = typer.Option(5e-5, "--lr"),
+    target_format: str = typer.Option("dsl", "--target-format"),
 ):
     """Train a neural sentence compiler (sentence → operation JSON)."""
     from sage.training.train_neural_sentence import train_neural_sentence_compiler
@@ -941,7 +943,7 @@ def train_neural_sentence_compiler_cmd(
         train_path=train, dev_path=dev, model_name=model,
         output_dir=str(output_dir), num_epochs=epochs, batch_size=batch_size,
         max_input_length=max_input_length, max_output_length=max_target_length,
-        learning_rate=learning_rate, use_cpu=use_cpu,
+        learning_rate=learning_rate, device=device,
     )
     console.print(f"[green]Model saved to {output_dir}[/]")
 
@@ -953,7 +955,8 @@ def eval_neural_sentence_compiler_cmd(
     model_path: Path = typer.Option(..., "--model", "-m"),
     benchmarks_dir: Path = typer.Option(Path("data/benchmarks"), "--benchmarks-dir", "-b"),
     max_per: int = typer.Option(30, "--max-samples", "-n"),
-    use_cpu: bool = typer.Option(True, "--cpu/--gpu"),
+    device: str = typer.Option("auto", "--device", help="Device: auto, cuda, mps, cpu"),
+    target_format: str = typer.Option("dsl", "--target-format"),
 ):
     """Evaluate a trained neural sentence compiler on all benchmarks."""
     import json, time, torch
@@ -970,9 +973,9 @@ def eval_neural_sentence_compiler_cmd(
     console.print("[bold blue]Neural Sentence Compiler Eval[/]")
     
     # Load model
-    device = "cuda" if (not use_cpu and torch.cuda.is_available()) else "cpu"
+    from sage.training.device import resolve_device, describe_device; dev = resolve_device(device); console.print(f"Device: {describe_device(dev)}")
     tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-    model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path)).to(device)
+    model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path)).to(dev)
     model.eval()
     
     benchmarks = ["easy","medium","hard","long","adversarial","ood_names","ood_phrasing","ood_numbers","ood_mixed"]
@@ -994,16 +997,29 @@ def eval_neural_sentence_compiler_cmd(
             ops = []
             for sent in sentences:
                 input_text = f"compile_sentence: {sent}"
-                inputs = tokenizer(input_text, return_tensors="pt", max_length=256, truncation=True).to(device)
+                inputs = tokenizer(input_text, return_tensors="pt", max_length=256, truncation=True).to(dev)
                 with torch.no_grad():
                     outputs = model.generate(**inputs, max_new_tokens=256, num_beams=1)
                 raw = tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-                try:
-                    parsed = json.loads(raw)
-                    if isinstance(parsed, list) and len(parsed) > 0:
-                        ops.append(parsed[0])
-                except:
-                    pass
+                if target_format == "dsl":
+                    from sage.compiler.op_dsl import parse_op_dsl
+                    parsed_ops = parse_op_dsl(raw, story)
+                    ops.extend(parsed_ops)
+                else:
+                    try:
+                        parsed = json.loads(raw)
+                        if isinstance(parsed, list) and len(parsed) > 0:
+                            ops.append(parsed[0])
+                    except:
+                        pass
+            
+            # Normalize TRANSFER ops: convert from/to to from_target/to_target for verifier
+            for op in ops:
+                if op.get("op") == "TRANSFER":
+                    if "from" in op:
+                        op["from_target"] = op.pop("from")
+                    if "to" in op:
+                        op["to_target"] = op.pop("to")
             
             # Verify + execute
             comp_json = json.dumps(ops)
@@ -1061,6 +1077,39 @@ def eval_models_cmd(
     generate_neural_report(results, output_dir)
     console.print(f"\n[dim]Reports saved to {output_dir}[/]")
 
+
+
+# ── test-forward ─────────────────────────────────────────────
+
+@app.command("test-forward")
+def test_forward_cmd(
+    model: str = typer.Option("google/flan-t5-small", "--model", "-m"),
+    device: str = typer.Option("auto", "--device", help="Device: auto, cuda, mps, cpu"),
+):
+    """Test that PyTorch + Transformers forward pass works on this machine."""
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+    from sage.training.device import resolve_device, describe_device
+    dev = resolve_device(device)
+    console.print(f"[bold]Device:[/] {describe_device(dev)}")
+    console.print(f"[bold]Model:[/] {model}")
+    console.print("Loading tokenizer...")
+    tokenizer = AutoTokenizer.from_pretrained(model)
+    console.print("Loading model...")
+    model_obj = AutoModelForSeq2SeqLM.from_pretrained(model).to(dev)
+    model_obj.eval()
+    text = "compile_sentence: Latif gains three coins."
+    console.print(f"Input: {text}")
+    inputs = tokenizer(text, return_tensors="pt", max_length=64, truncation=True)
+    inputs = {k: v.to(dev) for k, v in inputs.items()}
+    with torch.no_grad():
+        outputs = model_obj(**inputs, labels=inputs["input_ids"])
+        loss = outputs.loss.item()
+        generated = model_obj.generate(**inputs, max_new_tokens=64)
+        result = tokenizer.decode(generated[0], skip_special_tokens=True)
+    console.print(f"[green]Forward loss: {loss:.4f}[/]")
+    console.print(f"[green]Generated: {result}[/]")
+    console.print("[bold green]OK — PyTorch + Transformers working on this machine[/]")
 
 # ── info ─────────────────────────────────────────────────────────
 
