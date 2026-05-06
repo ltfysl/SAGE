@@ -66,12 +66,11 @@ def train_neural_sentence_compiler(
     device: str = "auto",
 ):
     """Train a neural sentence compiler model."""
+    dev = resolve_device(device)
+    print(f"Device: {describe_device(dev)}")
     print(f"Loading {model_name}...")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    
-    dev = resolve_device(device)
-    print(f"Device: {describe_device(dev)}")
     model.to(dev)
     
     train_dataset = NeuralSentenceDataset(train_path)
