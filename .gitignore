@@ -45,3 +45,4 @@ experiments/
 
 # HF model cache when stored locally
 /models/hf_cache/
+/laravel.log
