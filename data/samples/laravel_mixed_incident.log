@@ -1,0 +1,22 @@
+[2026-05-06 09:15:01] production.ERROR: SQLSTATE[HY000] [2002] Connection refused {"exception":"Illuminate\\Database\\QueryException","file":"/var/www/app/Http/Controllers/OrderController.php:42"}
+
+[2026-05-06 09:15:02] production.ERROR: Unable to send email: Connection to mailserver timed out {"exception":"Symfony\\Component\\Mailer\\Exception\\TransportException","file":"/var/www/app/Mail/OrderConfirmation.php:18"}
+
+[2026-05-06 09:15:05] production.WARNING: Queue worker restarted after memory limit exceeded
+
+[2026-05-06 09:16:12] production.ERROR: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'customer_email' in 'field list' {"exception":"Illuminate\\Database\\QueryException","file":"/var/www/app/Models/Order.php:87"}
+
+[2026-05-06 09:17:33] production.ERROR: Class "App\\Services\\PaymentGateway" not found {"exception":"Symfony\\Component\\ErrorHandler\\Error\\FatalError","file":"/var/www/app/Http/Controllers/CheckoutController.php:56"}
+
+[2026-05-06 09:18:01] production.ERROR: Illuminate\\Queue\\MaxAttemptsExceededException: App\\Jobs\\ProcessOrder has been attempted too many times. {"exception":"Illuminate\\Queue\\MaxAttemptsExceededException","file":"/var/www/vendor/laravel/framework/src/Illuminate/Queue/Worker.php:389"}
+[stacktrace]
+#0 /var/www/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(310): Illuminate\\Queue\\Worker->handleJobException()
+#1 /var/www/vendor/laravel/framework/src/Illuminate/Queue/Worker.php(255): Illuminate\\Queue\\Worker->process()
+
+[2026-05-06 09:22:45] production.ERROR: Swift_TransportException: Expected response code 250 but got code "550", with message "550 Mailbox full" {"exception":"Swift_TransportException","file":"/var/www/vendor/swiftmailer/swiftmailer/lib/classes/Swift/Transport/AbstractSmtpTransport.php:457"}
+
+[2026-05-06 09:30:00] production.INFO: Horizon restarted successfully
+
+[2026-05-06 09:31:12] production.WARNING: Authentication attempt failed for user admin@example.com from IP 192.168.1.100
+
+[2026-05-06 09:35:44] production.ERROR: Symfony\\Component\\HttpKernel\\Exception\\MethodNotAllowedHttpException: The POST method is not supported for route api/orders/batch. Supported methods: GET, HEAD. {"exception":"Symfony\\Component\\HttpKernel\\Exception\\MethodNotAllowedHttpException","file":"/var/www/app/Http/Middleware/VerifyCsrfToken.php:22"}

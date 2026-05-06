@@ -1164,7 +1164,108 @@ def test_forward_cmd(
     console.print(f"[green]Forward loss: {loss:.4f}[/]")
     console.print(f"[green]Generated: {result}[/]")
     console.print("[bold green]OK — PyTorch + Transformers working on this machine[/]")
+    console.print(f"[bold]A:[/] [green]{answer}[/]")
+# ── logs ──────────────────────────────────────────────────────────
 
+@app.command("logs-parse")
+def logs_parse_cmd(
+    file: Path = typer.Option(..., "--file", "-f", help="Path to a Laravel log file"),
+):
+    """Parse a Laravel log file and print structured blocks."""
+    from sage.domains.logs.laravel_log_parser import parse_log_file
+    console.print(f"[bold]Parsing {file}[/]\n")
+    blocks = parse_log_file(file)
+    console.print(f"Found {len(blocks)} log blocks\n")
+    for i, block in enumerate(blocks[:20]):
+        ts = block.get("timestamp", "?")
+        level = block.get("level", "?")
+        msg = block.get("message", "")[:100]
+        exc = block.get("exception", "") or "-"
+        console.print(f"[{i}] {ts} [{level}] {msg}")
+        if exc != "-":
+            console.print(f"    Exception: {exc}")
+    if len(blocks) > 20:
+        console.print(f"... and {len(blocks)-20} more blocks")
+
+
+@app.command("logs-compile")
+def logs_compile_cmd(
+    file: Path = typer.Option(..., "--file", "-f", help="Path to a Laravel log file"),
+):
+    """Compile a Laravel log into evidence-bound incident operations."""
+    from sage.domains.logs.laravel_log_parser import parse_log_file
+    from sage.domains.logs.log_compiler import LaravelLogCompiler
+    import json
+
+    console.print(f"[bold]Compiling {file}[/]\n")
+    blocks = parse_log_file(file)
+    compiler = LaravelLogCompiler()
+    ops = compiler.compile(blocks)
+    console.print(f"Compiled {len(ops)} incident operations:\n")
+    for op in ops:
+        console.print(f"  [{op['op']}] {op['timestamp']} — {op['message'][:80]}")
+    out = Path("data/reports/incident_ops.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w") as f:
+        json.dump(ops, f, indent=2, default=str)
+    console.print(f"\n[dim]Saved to {out}[/]")
+
+
+@app.command("logs-report")
+def logs_report_cmd(
+    file: Path = typer.Option(..., "--file", "-f", help="Path to a Laravel log file"),
+    output: Path = typer.Option(Path("data/reports/incident_report.md"), "--output", "-o"),
+):
+    """Generate a full SAGE Incident Lens report from a log file."""
+    from sage.domains.logs.laravel_log_parser import parse_log_file
+    from sage.domains.logs.log_compiler import LaravelLogCompiler
+    from sage.domains.logs.incident_engine import IncidentState
+    from sage.domains.logs.incident_renderer import render_incident_report, render_markdown_report
+
+    console.print(f"[bold blue]SAGE Incident Lens[/]\n")
+    console.print(f"File: {file}\n")
+
+    blocks = parse_log_file(file)
+    console.print(f"Parsed {len(blocks)} log blocks")
+
+    compiler = LaravelLogCompiler()
+    ops = compiler.compile(blocks)
+    console.print(f"Compiled {len(ops)} incident operations")
+
+    state = IncidentState()
+    for op in ops:
+        state.apply(op)
+    state.finalize()
+    state_dict = state.to_dict()
+
+    text_report = render_incident_report(state_dict)
+    console.print(f"\n{text_report}")
+
+    md = render_markdown_report(state_dict, output)
+    console.print(f"\n[green]Markdown report saved to {output}[/]")
+
+
+@app.command("logs-ask")
+def logs_ask_cmd(
+    file: Path = typer.Option(..., "--file", "-f", help="Path to a Laravel log file"),
+    question: str = typer.Option(..., "--question", "-q", help="Question about the incident"),
+):
+    """Ask a question about a SAGE-compiled log incident."""
+    from sage.domains.logs.laravel_log_parser import parse_log_file
+    from sage.domains.logs.log_compiler import LaravelLogCompiler
+    from sage.domains.logs.incident_engine import IncidentState
+
+    blocks = parse_log_file(file)
+    compiler = LaravelLogCompiler()
+    ops = compiler.compile(blocks)
+    state = IncidentState()
+    for op in ops:
+        state.apply(op)
+    state.finalize()
+
+    answer = state.answer(question)
+    console.print(f"[bold]Q:[/] {question}")
+    console.print(f"[bold]A:[/] [green]{answer}")
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")

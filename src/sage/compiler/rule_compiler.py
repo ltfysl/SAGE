@@ -3,70 +3,40 @@
 Deterministic reference compiler that parses synthetic event-world stories
 and converts known sentence patterns into JSON operation sequences with
 evidence spans. Includes non-event detection for adversarial robustness.
+
+Delegates entity extraction to sage.extraction and keeps rule-specific
+classification logic.
 """
 
 from __future__ import annotations
 
 import re
-import json
 from typing import Any
 
-
-# ── Object vocabulary ────────────────────────────────────────────
-
-PLURAL_FORMS = [
-    "coins", "books", "apples", "marbles", "cards", "candies",
-    "pencils", "stickers", "cookies", "shells", "stones", "beads",
-    "tokens", "berries", "seeds", "buttons", "keys", "rings",
-    "pebbles", "leaves",
-]
-
-SINGULAR_FORMS = [
-    "coin", "book", "apple", "marble", "card", "candy",
-    "pencil", "sticker", "cookie", "shell", "stone", "bead",
-    "token", "berry", "seed", "button", "key", "ring",
-    "pebble", "leaf",
-]
-
-# Build canonical form lookup
-SINGULAR_TO_PLURAL: dict[str, str] = {}
-for i, plural in enumerate(PLURAL_FORMS):
-    SINGULAR_TO_PLURAL[plural] = plural  # plural → self
-    if i < len(SINGULAR_FORMS):
-        SINGULAR_TO_PLURAL[SINGULAR_FORMS[i]] = plural  # singular → plural
+# Shared extraction module
+from sage.extraction.patterns import (
+    SET_VERBS, ADD_VERBS, SUB_VERBS, GIVE_VERBS, RECEIVE_VERBS,
+    BUY_VERBS, SELL_VERBS, OBJECT_LOOKUP,
+    NUMBER_RE, NAME_RE, TO_RE, FROM_RE, BY_RE,
+    QUESTION_PATTERNS,
+)
+from sage.extraction.number_extractor import extract_number
+from sage.extraction.sentence_splitter import split_sentences
 
 
 # ── Non-event patterns (must be checked BEFORE event patterns) ───
 
 NON_EVENT_PATTERNS = [
-    re.compile(rf'\b(almost|nearly)\b', re.IGNORECASE),
-    re.compile(rf'\b(wanted|planned|intended|meant|tried|hoped|wished)\s+to\b', re.IGNORECASE),
-    re.compile(rf'\b(but\s+did\s+not|but\s+didn\'?t|but\s+never\s+did|but\s+changed\s+\w+\s+mind|but\s+kept\s+them)\b', re.IGNORECASE),
-    re.compile(rf'\b(says?\s+\w+\s+has|claims?\s+to\s+have|thought\s+about)\b', re.IGNORECASE),
-    re.compile(rf'\b(if\s+only|would\s+have|could\s+have)\b', re.IGNORECASE),
+    re.compile(r'\b(almost|nearly)\b', re.IGNORECASE),
+    re.compile(r'\b(wanted|planned|intended|meant|tried|hoped|wished)\s+to\b', re.IGNORECASE),
+    re.compile(r'\b(but\s+did\s+not|but\s+didn\'?t|but\s+never\s+did|but\s+changed\s+\w+\s+mind|but\s+kept\s+them)\b', re.IGNORECASE),
+    re.compile(r'\b(says?\s+\w+\s+has|claims?\s+to\s+have|thought\s+about)\b', re.IGNORECASE),
+    re.compile(r'\b(if\s+only|would\s+have|could\s+have)\b', re.IGNORECASE),
 ]
-
-# ── Verb sets ─────────────────────────────────────────────────────
-
-SET_VERBS = {"has", "owns", "holds", "possesses", "has exactly", "is holding"}
-ADD_VERBS = {"finds", "discovers", "gains", "collects", "earns", "picks up"}
-SUB_VERBS = {"spends", "uses", "consumes", "loses", "drops", "misplaces",
-             "gives away", "parts with", "accidentally loses"}
-GIVE_VERBS = {"gives", "hands", "passes", "offers", "transfers"}
-RECEIVE_VERBS = {"receives", "gets", "takes", "is given"}
-BUY_VERBS = {"buys", "purchases", "pays"}
-SELL_VERBS = {"sells"}
 
 
 class RuleCompiler:
     """Deterministic rule-based compiler with evidence and non-event detection."""
-
-    NUMBER_RE = re.compile(r'\b(\d+)\b')
-    NAME_RE = re.compile(r'\b([A-Z][a-z]+)\b')
-    TO_RE = re.compile(r'\bto\s+([A-Z][a-z]+)')
-    FROM_RE = re.compile(r'\bfrom\s+([A-Z][a-z]+)')
-    BY_RE = re.compile(r'\bby\s+([A-Z][a-z]+)')
-    FOR_RE = re.compile(r'\bfor\s+(\d+)\s+(\w+)')
 
     # Question words that are NOT person names
     QUESTION_STOP_WORDS = {"how", "what", "who", "which", "whose", "question",
@@ -100,8 +70,7 @@ class RuleCompiler:
     # ── Sentence splitting ────────────────────────────────────────
 
     def _split_sentences(self, text: str) -> list[str]:
-        raw = re.split(r'(?<=[.!?])\s+', text)
-        return [s.strip() for s in raw if s.strip()]
+        return split_sentences(text)
 
     # ── Evidence helper ───────────────────────────────────────────
 
@@ -133,18 +102,17 @@ class RuleCompiler:
         for name in sorted(known, key=len, reverse=True):
             if name in text:
                 return name
-        for m in self.NAME_RE.finditer(text):
+        for m in NAME_RE.finditer(text):
             return m.group(1)
         return None
 
     def _extract_number(self, text: str) -> int | None:
-        m = self.NUMBER_RE.search(text)
-        return int(m.group(1)) if m else None
+        return extract_number(text)
 
     def _extract_object(self, text: str, known: set[str]) -> str | None:
         text_lower = text.lower()
-        # Build lookup: all forms → canonical plural
-        lookup: dict[str, str] = dict(SINGULAR_TO_PLURAL)
+        # Build lookup: canonical form map + known objects
+        lookup: dict[str, str] = dict(OBJECT_LOOKUP)
         for obj in known:
             lookup[obj.lower()] = obj
         # Longest match first
@@ -227,7 +195,7 @@ class RuleCompiler:
                 continue
             # Receiver: "to X" or indirect object "gives X N Y"
             receiver = None
-            to_m = self.TO_RE.search(s)
+            to_m = TO_RE.search(s)
             if to_m:
                 receiver = to_m.group(1)
             else:
@@ -272,8 +240,8 @@ class RuleCompiler:
             return None
 
         giver = None
-        from_m = self.FROM_RE.search(s)
-        by_m = self.BY_RE.search(s)
+        from_m = FROM_RE.search(s)
+        by_m = BY_RE.search(s)
         if from_m:
             giver = from_m.group(1)
         elif by_m:
@@ -373,7 +341,7 @@ class RuleCompiler:
                 continue
             # Seller: "from X" or "pays X for"
             seller = None
-            from_m = self.FROM_RE.search(s)
+            from_m = FROM_RE.search(s)
             if from_m:
                 seller = from_m.group(1)
             else:
@@ -406,7 +374,7 @@ class RuleCompiler:
             if seller is None:
                 continue
             buyer = None
-            to_m = self.TO_RE.search(s)
+            to_m = TO_RE.search(s)
             if to_m:
                 buyer = to_m.group(1)
             else:
@@ -435,22 +403,18 @@ class RuleCompiler:
         if not s.lower().startswith("question:"):
             return None
 
-        # Extract person
+        # Extract person using QUESTION_PATTERNS
         name = None
-        for pat in [
-            r'\bdoes\s+([A-Z][a-z]+)\s+have',
-            r'\bis\s+([A-Z][a-z]+)\s+holding',
-            r'\bwith\s+([A-Z][a-z]+)\b',
-            r'\bremain\s+with\s+([A-Z][a-z]+)',
-            r"([A-Z][a-z]+)'s\s+",
-        ]:
-            m = re.search(pat, s)
+        for pat in QUESTION_PATTERNS:
+            m = pat.search(s)
             if m:
-                name = m.group(1)
-                break
+                candidate = m.group(1)
+                if candidate.lower() not in self.QUESTION_STOP_WORDS:
+                    name = candidate
+                    break
         if name is None:
             # Fallback: find any capitalized non-stop-word
-            for fm in self.NAME_RE.finditer(s.replace("Question:", "")):
+            for fm in NAME_RE.finditer(s.replace("Question:", "")):
                 candidate = fm.group(1)
                 if candidate.lower() not in self.QUESTION_STOP_WORDS:
                     name = candidate
