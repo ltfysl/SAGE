@@ -14,15 +14,35 @@ def build_flow(task: str, codemap: dict, graph: dict) -> dict:
     seen_files = set()
     route_file = controller_file = service_file = model_file = table_name = None
 
-    # 1. Find route matching keywords
+    # 1. Find best-matching route (prefer specific terms over generic prefixes)
+    best_route = None
+    best_score = -1
     for r in routes:
         rname = str(r.get("name", "")).lower()
-        rfile = r.get("evidence", {}).get("file", "")
-        if any(kw in rname for kw in keywords):
-            route_file = rfile
-            steps.append({"type": "route", "label": r.get("name", ""), "file": rfile})
-            seen_files.add(rfile)
-            break
+        score = 0
+        for kw in keywords:
+            if kw in rname:
+                if kw == 'fix' and 'prefix' in rname:
+                    continue  # "fix" matches "prefix" — false positive
+                if kw == 'not' and len(kw) < 4:
+                    score += 0.5
+                else:
+                    score += 3
+        # Boost for SCORM/course-related terms
+        for term in ('scorm', 'course', 'commit', 'progress', 'finish', 'learning'):
+            if term in rname:
+                score += 5
+        # Penalize generic route groups
+        if rname.startswith('prefix') or rname.startswith('middleware') or rname.startswith('bind'):
+            score -= 10
+        if score > best_score:
+            best_score = score
+            best_route = r
+
+    if best_route:
+        route_file = best_route.get("evidence", {}).get("file", "")
+        steps.append({"type": "route", "label": best_route.get("name", ""), "file": route_file})
+        seen_files.add(route_file)
 
     # 2. Route → Controller (via IMPORTS edges from route file)
     for e in edges:
