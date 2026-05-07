@@ -48,6 +48,17 @@ def render_summary(state: dict) -> str:
     symbols = state.get("symbols", {})
     if symbols:
         lines.append(f"Symbols: {len(symbols)} unique")
+
+    graph = state.get("graph", {})
+    if graph:
+        nodes_count = len(graph.get("nodes", []))
+        edges_count = len(graph.get("edges", []))
+        if nodes_count or edges_count:
+            lines.append(f"Graph: {nodes_count} nodes, {edges_count} edges")
+            from collections import Counter
+            edge_types = Counter(e.get("type", "?") for e in graph.get("edges", []))
+            for et, ec in edge_types.most_common(5):
+                lines.append(f"  {et}: {ec}")
     lines.append("")
 
     return "\n".join(lines)

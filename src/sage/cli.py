@@ -1508,13 +1508,20 @@ def codemap_impact_cmd(
 ):
     """Analyze impact of changing a file."""
     from sage.domains.codemap.codemap_scan import load_codemap
-    from sage.domains.codemap.codemap_ask import CodemapAsk
     from sage.domains.codemap.codemap_renderer import render_impact
+    import json
     data = load_codemap(map)
-    ask = CodemapAsk(data)
-    result = ask._find_impact(f"change {file}")
-    result["file"] = file
-    console.print(render_impact(result))
+    graph = data.get("graph", {})
+    edges = graph.get("edges", [])
+    deps = [e for e in edges if e.get("from") and file in str(e["from"])][:15]
+    dependents = [e for e in edges if e.get("to") and file in str(e["to"])][:15]
+    impact = {
+        "file": file,
+        "dependencies": [{"file": e.get("to", "?"), "op": e.get("type", "?")} for e in deps],
+        "dependents": [{"file": e.get("from", "?"), "op": e.get("type", "?")} for e in dependents],
+        "notes": "Graph built from evidence-bound operations. Static analysis only.",
+    }
+    console.print(render_impact(impact))
 
 
 @app.command("codemap-search")

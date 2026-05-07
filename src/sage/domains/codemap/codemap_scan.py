@@ -56,12 +56,17 @@ def run_codemap_scan(project_path: str | Path, output_path: str | Path = None, i
     config_ops = parse_configs(str(project_path))
     all_ops.extend(config_ops)
 
+    # Build dependency graph from operations
+    from sage.domains.codemap.graph_builder import build_graph_from_ops
+    graph = build_graph_from_ops(all_ops)
+
     # Build state
     state = CodemapState()
     for op in all_ops:
         state.apply(op)
 
     result = state.to_dict()
+    result["graph"] = graph
     result["languages"] = sorted(languages)
     result["frameworks"] = sorted(frameworks)
     result["project_root"] = str(project_path)
