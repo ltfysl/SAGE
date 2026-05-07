@@ -1577,11 +1577,17 @@ def codemap_symbol_cmd(
 def codemap_context_cmd(
     map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
     task: str = typer.Option(..., "--task", "-t", help="Task description"),
+    max_results: int = typer.Option(20, "--max-results", "-n"),
+    format: str = typer.Option("markdown", "--format", "-f", help="Output: markdown, text, or json"),
 ):
     """Generate a context pack for a coding task."""
     from sage.domains.codemap.codemap_context import generate_context
-    ctx = generate_context(map, task)
-    console.print(ctx)
+    import json
+    ctx = generate_context(map, task, max_results=max_results, format=format)
+    if format == "json":
+        console.print(json.dumps(ctx, indent=2, ensure_ascii=False, default=str))
+    else:
+        console.print(ctx)
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")
