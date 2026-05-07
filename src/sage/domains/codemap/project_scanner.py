@@ -41,7 +41,7 @@ def _is_ignored(entry_path: str, root: str) -> bool:
 
 
 def scan_project(
-    root: str, *, max_files: Optional[int] = None
+    root: str, *, max_files: Optional[int] = None, include_samples: bool = False
 ) -> list[dict]:
     """Walk *root* and return a list of file metadata dicts.
 

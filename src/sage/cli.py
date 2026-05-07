@@ -1464,7 +1464,7 @@ def codemap_scan_cmd(
     from sage.domains.codemap.codemap_scan import run_codemap_scan
     console.print(f"[bold blue]SAGE CodeMap Scan[/]\n")
     console.print(f"Project: {path}")
-    result = run_codemap_scan(path, output)
+    result = run_codemap_scan(path, output, include_samples=False)
     tf = len(result.get("files", {}))
     to = result.get("ops_count", 0)
     lg = ", ".join(result.get("languages", []))
@@ -1561,6 +1561,16 @@ def codemap_symbol_cmd(
     console.print(render_ask_answer(f"Where is {symbol} used?", answer, answer.get("evidence", [])))
 
 
+
+@app.command("codemap-context")
+def codemap_context_cmd(
+    map: Path = typer.Option(..., "--map", "-m", help="Path to codemap JSON"),
+    task: str = typer.Option(..., "--task", "-t", help="Task description"),
+):
+    """Generate a context pack for a coding task."""
+    from sage.domains.codemap.codemap_context import generate_context
+    ctx = generate_context(map, task)
+    console.print(ctx)
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")

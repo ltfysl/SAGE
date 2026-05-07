@@ -10,11 +10,11 @@ from sage.domains.codemap.config_parser import parse_all as parse_configs
 from sage.domains.codemap.codemap_engine import CodemapState
 
 
-def run_codemap_scan(project_path: str | Path, output_path: str | Path = None) -> dict:
+def run_codemap_scan(project_path: str | Path, output_path: str | Path = None, include_samples: bool = False) -> dict:
     """Run a full codemap scan on a project directory."""
     project_path = Path(project_path).resolve()
 
-    files = scan_project(project_path)
+    files = scan_project(project_path, include_samples=include_samples)
     languages = detect_languages(files)
     frameworks = detect_frameworks(str(project_path))
 

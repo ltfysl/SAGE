@@ -60,6 +60,31 @@ def _any_glob_match(root: str, pattern: str) -> bool:
 
 
 def detect_frameworks(root: str) -> list[str]:
+    """Detect frameworks in root and immediate subdirectories."""
+    import os
+    frameworks = set()
+    # Check root
+    frameworks.update(_detect_at_path(root))
+    # Check subdirectories up to 2 levels deep (for monorepos)
+    try:
+        for entry in os.listdir(root):
+            sub = os.path.join(root, entry)
+            if os.path.isdir(sub) and not entry.startswith('.') and entry not in ('node_modules', 'vendor', '__pycache__', 'data', 'models'):
+                frameworks.update(_detect_at_path(sub))
+                # Check one level deeper (e.g., apps/sage-incident-lens-web)
+                try:
+                    for sub_entry in os.listdir(sub):
+                        sub2 = os.path.join(sub, sub_entry)
+                        if os.path.isdir(sub2) and not sub_entry.startswith('.'):
+                            frameworks.update(_detect_at_path(sub2))
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    return sorted(frameworks)
+
+def _detect_at_path(root: str) -> list[str]:
+    """Detect frameworks at a single path."""
     """Analyse *root* and return a deduplicated list of detected framework names.
 
     Supported frameworks:

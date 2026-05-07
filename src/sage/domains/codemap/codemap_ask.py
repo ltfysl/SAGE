@@ -8,9 +8,20 @@ class CodemapAsk:
 
     def __init__(self, state: dict):
         self.state = state
+        # Build case-insensitive symbol index once
+        self._lower_index: dict[str, list[dict]] = {}
+        for sym_name, ops in state.get("symbols", {}).items():
+            key = sym_name.lower()
+            if key not in self._lower_index:
+                self._lower_index[key] = []
+            self._lower_index[key].extend(ops)
 
     def ask(self, question: str) -> dict:
         q = question.lower().strip()
+
+        # What files are involved in X?  → full-text search
+        if "files involved in" in q or "files are involved" in q:
+            return self._search_fulltext(question)
 
         # What writes to <table>?
         if "write" in q or "writes" in q:
@@ -81,8 +92,8 @@ class CodemapAsk:
 
     def _find_usages(self, q: str) -> dict:
         symbol = self._extract_symbol(q)
-        symbols = self.state.get("symbols", {})
-        ops = symbols.get(symbol, [])
+        # Case-insensitive lookup via _lower_index; preserve original names in output
+        ops = self._lower_index.get(symbol.lower(), [])
         return {
             "text": f"Found {len(ops)} definition(s) of {symbol}." if ops else f"No definitions of {symbol} found.",
             "evidence": ops[:15],
@@ -138,6 +149,42 @@ class CodemapAsk:
         return {
             "text": f"Found {len(matches)} match(es) for '{keyword}'." if matches else f"No matches for '{keyword}'.",
             "evidence": matches[:15],
+        }
+
+    def _search_fulltext(self, query: str) -> dict:
+        """Full-text search across file paths, symbols, and operations with scoring."""
+        keywords = query.lower().split()
+        results = []
+        for file_path, ops in self.state.get("files", {}).items():
+            score = 0
+            matches = []
+            fp_lower = file_path.lower()
+            for kw in keywords:
+                if kw in fp_lower:
+                    score += 5
+                    matches.append(f"path contains '{kw}'")
+            # Symbol matches via _lower_index
+            for sym_name in self._lower_index:
+                for kw in keywords:
+                    if kw in sym_name:
+                        # Only score once per keyword per file for symbol matches
+                        if any(sym_name in fp_lower or fp_lower in sym_name for fp_lower in [file_path.lower()]):
+                            score += 3
+                            matches.append(f"symbol match: {sym_name}")
+                            break
+            for op in ops:
+                op_str = str(op).lower()
+                for kw in keywords:
+                    if kw in op_str:
+                        score += 2
+                        matches.append(f"op: {op.get('op','?')} {op.get('name','?')}")
+            if score > 0:
+                results.append({"file": file_path, "score": score, "matches": matches[:5], "ops_count": len(ops)})
+        results.sort(key=lambda r: -r["score"])
+        return {
+            "text": f"Found {len(results)} files matching '{query}'.",
+            "evidence": [{"name": r["file"], "op": f"score={r['score']}", "evidence": {"file": r["file"], "line": 0}} for r in results[:20]],
+            "notes": "Full-text search across file paths, symbols, and operations.",
         }
 
     @staticmethod
