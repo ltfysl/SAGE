@@ -1623,6 +1623,72 @@ def codemap_cursor_cmd(
     console.print(f"\n[dim]Task: {task}[/]")
 
 
+
+# ── sage-core ────────────────────────────────────────────────────
+
+@app.command("domains")
+def domains_cmd():
+    """List registered SAGE domains."""
+    from sage.core.registry import list_domains, _registry
+    from sage.domains.codemap.domain import CodeMapDomain
+    from sage.domains.logs.domain import LogsDomain
+
+    # Auto-register if needed
+    if "codemap" not in _registry:
+        _registry["codemap"] = CodeMapDomain()
+    if "logs" not in _registry:
+        _registry["logs"] = LogsDomain()
+
+    names = list_domains()
+    console.print("[bold blue]SAGE Domains[/]\n")
+    for name in names:
+        d = _registry[name]
+        console.print(f"  [cyan]{name}[/] v{d.version} — {d.description}")
+
+
+@app.command("sage-run")
+def sage_run_cmd(
+    domain: str = typer.Option(..., "--domain", "-d", help="Domain name"),
+    input_path: Path = typer.Option(..., "--input", "-i", help="Input file or path"),
+    question: Optional[str] = typer.Option(None, "--question", "-q", help="Question to ask"),
+    fmt: str = typer.Option("text", "--format", "-f", help="Output: text, markdown, json"),
+):
+    """Run a SAGE domain: compile input, optionally answer a question."""
+    from sage.core.registry import get_domain, _registry
+    from sage.domains.codemap.domain import CodeMapDomain
+    from sage.domains.logs.domain import LogsDomain
+
+    if domain not in _registry:
+        _registry["codemap"] = CodeMapDomain()
+        _registry["logs"] = LogsDomain()
+
+    d = get_domain(domain)
+    if d is None:
+        console.print(f"[red]Unknown domain: {domain}[/]")
+        return
+
+    console.print(f"[bold blue]SAGE RUN: {d.name} v{d.version}[/]\n")
+    console.print(f"Input: {input_path}")
+
+    ops = d.compile(str(input_path))
+    state = d.build_state(ops)
+    console.print(f"Compiled {len(ops)} operations")
+
+    rendered = d.render(state, fmt)
+    console.print(f"\n{rendered}")
+
+    if question:
+        ctx = {}
+        if domain == "codemap":
+            # Get map path from scan
+            safe = str(input_path).replace("/", "_").replace(" ", "_")
+            ctx["map_path"] = f"data/codemaps/{safe}_codemap.json"
+        result = d.answer(state, question, ctx)
+        console.print(f"\n[bold]Q:[/] {question}")
+        console.print(f"[bold]A:[/] [green]{result.answer}[/]")
+
+
+
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")
