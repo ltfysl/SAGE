@@ -41,7 +41,15 @@ def build_flow(task: str, codemap: dict, graph: dict) -> dict:
         dst = e.get("to", "")
         if controller_file and src == controller_file:
             etype = e.get("type", "")
-            if etype in ("CALLS", "CONTROLLER_USES_SERVICE", "IMPORTS") and ("Service" in dst or "service" in dst.lower()):
+            # Accept edges to runtime classes: Service, Manifest, Helper, Progress, Handler, etc.
+            is_runtime = ("Service" in dst or "service" in dst.lower() or
+                         "Manifest" in dst or "manifest" in dst.lower() or
+                         "Helper" in dst or "helper" in dst.lower() or
+                         "Progress" in dst or "progress" in dst.lower() or
+                         "Handler" in dst or "handler" in dst.lower() or
+                         "Repository" in dst or "repository" in dst.lower() or
+                         "Manager" in dst or "manager" in dst.lower())
+            if etype in ("CONTROLLER_USES_SERVICE",) or (etype in ("CALLS", "IMPORTS") and is_runtime):
                 service_file = _resolve_file(dst, files)
                 steps.append({"type": "service", "label": _basename(dst), "file": service_file or dst})
                 if service_file:

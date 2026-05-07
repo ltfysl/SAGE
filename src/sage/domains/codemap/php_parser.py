@@ -308,6 +308,12 @@ def parse_php_file(file_path: str | Path) -> list[dict]:
             for cls in re.findall(r'(?:private|protected|public)\s+(\w+Service|\w+Repository)\s+\$', params):
                 _emit("CONTROLLER_USES_SERVICE", cls, lineno, raw.strip())
 
+        # ── app(ClassName::class) service container resolution ──
+        m = re.search(r'app\(([A-Z][\w\]+)::class\)', raw)
+        if m:
+            cls = m.group(1).split('\')[-1]
+            _emit("CONTROLLER_USES_SERVICE", cls, lineno, raw.strip())
+
         # ── ->service->method() calls ──
         m = SERVICE_METHOD_CALL_RE.search(raw)
         if m:
@@ -334,6 +340,14 @@ def parse_php_file(file_path: str | Path) -> list[dict]:
             _emit("SERVICE_USES_MODEL", model, lineno, raw.strip())
             continue
 
+        # ── firstOrNew → READS_TABLE + WRITES_TABLE ──
+        m = re.search(r'(\w+)::firstOrNew\s*\(', raw)
+        if m and m.group(1)[0].isupper():
+            model = m.group(1)
+            table = _model_to_table(model)
+            _emit("READS_TABLE", table, lineno, raw.strip())
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
+
         # ── Model update/updateOrCreate/firstOrCreate ──
         m = MODEL_UPDATE_RE.search(raw)
         if m and m.group(1)[0].isupper():
@@ -354,6 +368,14 @@ def parse_php_file(file_path: str | Path) -> list[dict]:
         if m and m.group(1)[0].isupper():
             model = m.group(1)
             table = _model_to_table(model)
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
+
+        # ── $var->store() on model instances → WRITES_TABLE ──
+        m = re.search(r'(\$\w+)->store\s*\(', raw)
+        if m:
+            var = m.group(1)
+            table = _model_to_table(var)
+            _emit("CALLS_METHOD", f"{var}->store()", lineno, raw.strip())
             _emit("WRITES_TABLE", table, lineno, raw.strip())
 
         # ── $model->save() / $model->delete() ──
