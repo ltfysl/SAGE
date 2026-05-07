@@ -1588,6 +1588,41 @@ def codemap_context_cmd(
         console.print(json.dumps(ctx, indent=2, ensure_ascii=False, default=str))
     else:
         console.print(ctx)
+
+@app.command("codemap-cursor")
+def codemap_cursor_cmd(
+    project: Path = typer.Option(..., "--project", "-p", help="Path to target project"),
+    task: str = typer.Option(..., "--task", "-t", help="Task description"),
+    map: Optional[Path] = typer.Option(None, "--map", "-m", help="Path to existing codemap JSON (optional)"),
+    max_results: int = typer.Option(20, "--max-results", "-n"),
+    force_scan: bool = typer.Option(False, "--force-scan/--no-force-scan"),
+    write_rule: bool = typer.Option(True, "--write-rule/--no-write-rule"),
+    output: str = typer.Option(".cursor/sage-context.md", "--output", "-o"),
+):
+    """Generate SAGE CodeMap context for Cursor IDE."""
+    from sage.domains.codemap.cursor_integration import generate_cursor_context
+
+    console.print(f"[bold blue]SAGE CodeMap → Cursor[/]\n")
+    console.print(f"Project: {project}")
+    console.print(f"Task: {task}")
+
+    result = generate_cursor_context(
+        project_path=project, task=task, map_path=map,
+        max_results=max_results, force_scan=force_scan,
+        write_rule=write_rule, output=output,
+    )
+
+    console.print(f"\n[green]Context:[/] {result['context_file']}")
+    if result.get('rule_file'):
+        console.print(f"[green]Rule:[/] {result['rule_file']}")
+
+    console.print(f"\n[bold]Open Cursor in:[/] {project}")
+    console.print(f"[bold]Then ask Cursor:[/]")
+    console.print(f"  @.cursor/sage-context.md")
+    console.print(f"  Use this SAGE CodeMap context. Follow the evidence. Do not modify unrelated files.")
+    console.print(f"\n[dim]Task: {task}[/]")
+
+
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")
