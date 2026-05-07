@@ -1636,8 +1636,32 @@ def domains_cmd():
     # Auto-register if needed
     if "codemap" not in _registry:
         _registry["codemap"] = CodeMapDomain()
-    if "logs" not in _registry:
         _registry["logs"] = LogsDomain()
+        try:
+            from sage.domains.specsync.domain import SpecSyncDomain
+            _registry["specsync"] = SpecSyncDomain()
+        except:pass
+        try:
+            from sage.domains.project_memory.domain import MemoryDomain
+            _registry["project_memory"] = MemoryDomain()
+        except:pass
+        try:
+            from sage.domains.specsync.domain import SpecSyncDomain
+            _registry["specsync"] = SpecSyncDomain()
+        except: pass
+        try:
+            from sage.domains.project_memory.domain import MemoryDomain
+            _registry["project_memory"] = MemoryDomain()
+        except: pass
+        _registry["logs"] = LogsDomain()
+        try:
+            from sage.domains.specsync.domain import SpecSyncDomain
+            _registry["specsync"] = SpecSyncDomain()
+        except:pass
+        try:
+            from sage.domains.project_memory.domain import MemoryDomain
+            _registry["project_memory"] = MemoryDomain()
+        except:pass
 
     names = list_domains()
     console.print("[bold blue]SAGE Domains[/]\n")
@@ -1653,14 +1677,40 @@ def sage_run_cmd(
     question: Optional[str] = typer.Option(None, "--question", "-q", help="Question to ask"),
     fmt: str = typer.Option("text", "--format", "-f", help="Output: text, markdown, json"),
 ):
-    """Run a SAGE domain: compile input, optionally answer a question."""
-    from sage.core.registry import get_domain, _registry
+    if domain not in _registry:
+        _registry["codemap"] = CodeMapDomain()
+        _registry["logs"] = LogsDomain()
+        try:
+            from sage.domains.specsync.domain import SpecSyncDomain
+            _registry["specsync"] = SpecSyncDomain()
+        except:pass
+        try:
+            from sage.domains.project_memory.domain import MemoryDomain
+            _registry["project_memory"] = MemoryDomain()
+        except:pass
+        except: pass
     from sage.domains.codemap.domain import CodeMapDomain
     from sage.domains.logs.domain import LogsDomain
 
     if domain not in _registry:
         _registry["codemap"] = CodeMapDomain()
         _registry["logs"] = LogsDomain()
+        try:
+            from sage.domains.specsync.domain import SpecSyncDomain
+            _registry["specsync"] = SpecSyncDomain()
+        except:pass
+        try:
+            from sage.domains.project_memory.domain import MemoryDomain
+            _registry["project_memory"] = MemoryDomain()
+        except:pass
+        try:
+            from sage.domains.specsync.domain import SpecSyncDomain
+            _registry["specsync"] = SpecSyncDomain()
+        except:pass
+        try:
+            from sage.domains.project_memory.domain import MemoryDomain
+            _registry["project_memory"] = MemoryDomain()
+        except:pass
 
     d = get_domain(domain)
     if d is None:
