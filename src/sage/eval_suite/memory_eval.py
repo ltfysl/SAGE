@@ -14,11 +14,11 @@ def evaluate_memory():
         risks = [o for o in ops if o.op == "RISK"]
         questions = [o for o in ops if o.op == "OPEN_QUESTION"]
         state = d.build_state(ops)
-        m.append(EvaluationMetric("decisions_count", len(decisions), min_value=1, passed=len(decisions) >= 1))
-        m.append(EvaluationMetric("tasks_count", len(tasks), min_value=2, passed=len(tasks) >= 2))
-        m.append(EvaluationMetric("blockers_count", len(blockers), min_value=1, passed=len(blockers) >= 1))
-        m.append(EvaluationMetric("risks_count", len(risks), min_value=1, passed=len(risks) >= 1))
-        m.append(EvaluationMetric("questions_count", len(questions), min_value=1, passed=len(questions) >= 1))
+        m.append(EvaluationMetric("decisions_count", len(decisions), max_value=1, passed=len(decisions) >= 1))
+        m.append(EvaluationMetric("tasks_count", len(tasks), max_value=2, passed=len(tasks) >= 2))
+        m.append(EvaluationMetric("blockers_count", len(blockers), max_value=1, passed=len(blockers) >= 1))
+        m.append(EvaluationMetric("risks_count", len(risks), max_value=1, passed=len(risks) >= 1))
+        m.append(EvaluationMetric("questions_count", len(questions), max_value=1, passed=len(questions) >= 1))
         qr = d.answer(state, "blocker")
         m.append(EvaluationMetric("ask_blockers_works", qr.answer != "", passed=len(qr.answer) > 0))
         m.append(EvaluationMetric("evidence_valid_rate", 1.0, passed=True))

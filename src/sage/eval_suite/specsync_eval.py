@@ -12,9 +12,9 @@ def evaluate_specsync():
         acs = [o for o in ops if o.op == "DEFINE_ACCEPTANCE_CRITERION"]
         tasks = [o for o in ops if o.op in ("DEFINE_TASK",)]
         state = d.build_state(ops)
-        m.append(EvaluationMetric("requirement_count", len(reqs), min_value=2, passed=len(reqs) >= 2))
-        m.append(EvaluationMetric("acceptance_criteria_count", len(acs), min_value=5, passed=len(acs) >= 5))
-        m.append(EvaluationMetric("task_count", len(tasks), min_value=5, passed=len(tasks) >= 5))
+        m.append(EvaluationMetric("requirement_count", len(reqs), max_value=2, passed=len(reqs) >= 2))
+        m.append(EvaluationMetric("acceptance_criteria_count", len(acs), max_value=5, passed=len(acs) >= 5))
+        m.append(EvaluationMetric("task_count", len(tasks), max_value=5, passed=len(tasks) >= 5))
         qr = d.answer(state, "What is missing?")
         m.append(EvaluationMetric("ask_missing_works", qr.answer != "", passed=len(qr.answer) > 0))
         qr2 = d.answer(state, "Is the release ready?")

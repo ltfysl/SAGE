@@ -1687,7 +1687,6 @@ def sage_run_cmd(
         try:
             from sage.domains.project_memory.domain import MemoryDomain
             _registry["project_memory"] = MemoryDomain()
-        except:pass
         except: pass
     from sage.domains.codemap.domain import CodeMapDomain
     from sage.domains.logs.domain import LogsDomain
