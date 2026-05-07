@@ -1875,6 +1875,26 @@ def memory_scan_cmd(
     if output:
         import json
         output.write_text(json.dumps(state.to_dict(), indent=2))
+
+
+# -- sage-eval
+
+@app.command("sage-eval")
+def sage_eval_cmd(
+    suite: str = typer.Option("all", "--suite", "-s"),
+    fmt: str = typer.Option("markdown", "--format", "-f"),
+    output = typer.Option(None, "--output", "-o"),
+):
+    """Run SAGE evaluation suites."""
+    from sage.eval_suite.runner import run_suite
+    from sage.eval_suite.renderer import render_results
+    r=run_suite(suite)
+    text=render_results(r,fmt)
+    if output:
+        output.write_text(text)
+    else:
+        console.print(text)
+
 @app.command("info")
 def info_cmd():
     """Show SAGE system information."""
