@@ -46,5 +46,15 @@ class Evidence:
             return self.span
         return self.span[:max_chars] + '…'
 
+    def has_location(self):
+        return self.file is not None or self.line is not None
+
+    def location_str(self):
+        if self.file and self.line:
+            return chr(123)+chr(125)+chr(58)+chr(123)+chr(125).format(self.file,self.line)
+        if self.file:
+            return self.file
+        return chr(39)+chr(39)
+
     def __repr__(self):
         return f"Evidence(span={self.short_span(60)!r}, confidence={self.confidence})"
