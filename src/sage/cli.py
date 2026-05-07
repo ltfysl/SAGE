@@ -1807,8 +1807,25 @@ def specsync_cursor_cmd(
     cm=load_codemap(str(codemap))
     ctx=build_specsync_cursor_context(ops,cm,task)
     console.print(ctx)
-# ── info ─────────────────────────────────────────────────────────
 
+
+# -- memory-scan
+
+@app.command("memory-scan")
+def memory_scan_cmd(
+    input: Path = typer.Option(...,"--input","-i"),
+    output: Optional[Path] = typer.Option(None,"--output","-o"),
+):
+    """Scan meeting notes and build project memory state."""
+    from sage.domains.project_memory.domain import MemoryDomain
+    dom = MemoryDomain()
+    ops = dom.compile(str(input))
+    state = dom.build_state(ops)
+    text = dom.render(state, fmt="markdown")
+    console.print(text)
+    if output:
+        import json
+        output.write_text(json.dumps(state.to_dict(), indent=2))
 @app.command("info")
 def info_cmd():
     """Show SAGE system information."""
