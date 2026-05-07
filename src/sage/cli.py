@@ -1689,6 +1689,45 @@ def sage_run_cmd(
 
 
 
+
+
+# -- codemap-index
+
+@app.command("codemap-index")
+def codemap_index_cmd(
+    project: Path = typer.Option(..., "--project", "-p"),
+    force: bool = typer.Option(False, "--force"),
+):
+    """Index a project for CodeMap."""
+    from sage.domains.codemap.project_index import index_project
+    info = index_project(project, force=force)
+    console.print(f"Project: {info['project_name']}")
+    console.print(f"Files: {info['file_count']}")
+
+
+@app.command("codemap-list-projects")
+def codemap_list_projects_cmd():
+    """List indexed CodeMap projects."""
+    from sage.domains.codemap.project_index import list_projects
+    ps=list_projects()
+    if not ps:
+        console.print("[dim]No indexed projects")
+    for info in ps:
+        console.print(info.get("project_name","?"))
+
+
+@app.command("codemap-project-info")
+def codemap_project_info_cmd(
+    project: Path = typer.Option(...,"--project","-p"),
+):
+    """Show indexed info for a project."""
+    from sage.domains.codemap.project_index import get_project_info
+    import json
+    i=get_project_info(project)
+    if i:
+        console.print(json.dumps(i, indent=2, default=str))
+    else:
+        console.print("[yellow]No index found")
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")

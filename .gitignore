@@ -62,3 +62,4 @@ models/neural-sentence-compiler-*/
 /apps/sage-incident-lens-web/next-env.d.ts
 /apps/sage-incident-lens-web/package-lock.json
 /data/codemaps/
+data/indexes/
