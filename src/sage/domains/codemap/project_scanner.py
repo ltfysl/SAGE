@@ -40,8 +40,20 @@ def _is_ignored(entry_path: str, root: str) -> bool:
     return False
 
 
+COMPILED_PATTERNS = ["public/js/app.js", "public/css/app.css", "public/build/", "public/hot", "public/mix-manifest.json", "public/vendor/"]
+def _is_compiled_bundle(filepath: str, size_bytes: int = 0) -> bool:
+    """Check if a file is a compiled/generated bundle that should be skipped."""
+    fp = filepath.lower()
+    if any(p in fp for p in COMPILED_PATTERNS):
+        return True
+    ext = filepath.rsplit('.', 1)[-1].lower() if '.' in filepath else ''
+    if ext in ('js', 'css') and size_bytes > 50_000:
+        return True
+    return False
+
+
 def scan_project(
-    root: str, *, max_files: Optional[int] = None, include_samples: bool = False
+    root: str, *, max_files: Optional[int] = None, include_samples: bool = False, include_built_assets: bool = False
 ) -> list[dict]:
     """Walk *root* and return a list of file metadata dicts.
 
@@ -88,6 +100,10 @@ def scan_project(
             )
 
             if max_files is not None and len(results) >= max_files:
+                if not include_built_assets:
+                    results = [r for r in results if not _is_compiled_bundle(r.get("path", ""), r.get("size_bytes", 0))]
                 return results
 
+    if not include_built_assets:
+        results = [r for r in results if not _is_compiled_bundle(r.get("path", ""), r.get("size_bytes", 0))]
     return results

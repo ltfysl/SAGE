@@ -1497,7 +1497,11 @@ def codemap_ask_cmd(
     from sage.domains.codemap.codemap_renderer import render_ask_answer
     data = load_codemap(map)
     ask = CodemapAsk(data)
-    answer = ask.ask(question)
+    # Default search args
+    if 'files are involved' in question.lower() or 'files involved' in question.lower():
+        answer = ask._search_fulltext(question, max_results=25, min_score=3)
+    else:
+        answer = ask.ask(question)
     console.print(render_ask_answer(question, answer, answer.get("evidence", [])))
 
 

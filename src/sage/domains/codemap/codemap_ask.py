@@ -3,6 +3,14 @@ from __future__ import annotations
 import re
 
 
+
+def _is_compiled_path(filepath: str) -> bool:
+    """Check if a file is likely a compiled/generated bundle."""
+    bad = ['public/js/app.js', 'public/css/app.css', 'public/build/', 'public/hot', 'public/mix-manifest.json', 'public/vendor/', 'dist/', 'build/', '.next/']
+    fp = filepath.lower()
+    return any(b in fp for b in bad)
+
+
 class CodemapAsk:
     """Answer fixed-scope questions using codemap state."""
 
@@ -151,7 +159,8 @@ class CodemapAsk:
             "evidence": matches[:15],
         }
 
-    def _search_fulltext(self, query: str) -> dict:
+    def _search_fulltext(self, query: str, max_results: int = 25, min_score: int = 3) -> dict:
+        """Full-text search with scoring caps and relevance filtering."""
         """Full-text search across file paths, symbols, and operations with scoring."""
         keywords = query.lower().split()
         results = []
@@ -167,7 +176,6 @@ class CodemapAsk:
             for sym_name in self._lower_index:
                 for kw in keywords:
                     if kw in sym_name:
-                        # Only score once per keyword per file for symbol matches
                         if any(sym_name in fp_lower or fp_lower in sym_name for fp_lower in [file_path.lower()]):
                             score += 3
                             matches.append(f"symbol match: {sym_name}")
@@ -178,12 +186,17 @@ class CodemapAsk:
                     if kw in op_str:
                         score += 2
                         matches.append(f"op: {op.get('op','?')} {op.get('name','?')}")
+            # Penalize compiled/bundled files AFTER scoring
+            if _is_compiled_path(file_path):
+                score = max(0, score - 500)
             if score > 0:
                 results.append({"file": file_path, "score": score, "matches": matches[:5], "ops_count": len(ops)})
         results.sort(key=lambda r: -r["score"])
+        filtered = [r for r in results if r["score"] >= min_score][:max_results]
+        weak = [r for r in results if 0 < r["score"] < min_score][:5]
         return {
-            "text": f"Found {len(results)} files matching '{query}'.",
-            "evidence": [{"name": r["file"], "op": f"score={r['score']}", "evidence": {"file": r["file"], "line": 0}} for r in results[:20]],
+            "text": f"Found {len(filtered)} files matching '{query}' (min_score={min_score})." + (f" {len(weak)} weak matches below threshold." if weak else ""),
+            "evidence": [{"name": r["file"], "op": f"score={r['score']}", "evidence": {"file": r["file"], "line": 0}} for r in filtered[:max_results]],
             "notes": "Full-text search across file paths, symbols, and operations.",
         }
 

@@ -42,6 +42,7 @@ DB_WRITE_RE = re.compile(
 )
 MODEL_CREATE_RE = re.compile(r'(\w+)::create\(')
 MODEL_UPDATE_RE = re.compile(r'(\w+)::(?:updateOrCreate|update)\(')
+MODEL_DELETE_RE = re.compile(r"(\$\w+)->delete\(")
 MODEL_SAVE_RE = re.compile(r'(\$\w+)->save\(')
 DISPATCH_RE = re.compile(r'dispatch\(\s*new\s+([^(]+)')
 DISPATCH_STATIC_RE = re.compile(r'(\w+)::dispatch\(')
@@ -217,25 +218,38 @@ def parse_php_file(file_path: str | Path) -> list[dict]:
             _emit("WRITES_TABLE", m.group(1), lineno, raw.strip())
             continue
 
-        # ── Model create ──
+        # ── Model create/firstOrCreate ──
         m = MODEL_CREATE_RE.search(raw)
         if m and m.group(1)[0].isupper():
-            _emit("CALLS_METHOD", f"{m.group(1)}::create()", lineno, raw.strip())
-            _emit("WRITES_TABLE", m.group(1).lower(), lineno, raw.strip())
+            model = m.group(1)
+            _emit("CALLS_METHOD", f"{model}::create()", lineno, raw.strip())
+            table = _model_to_table(model)
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
             continue
 
-        # ── Model update/updateOrCreate ──
+        # ── Model update/updateOrCreate/firstOrCreate ──
         m = MODEL_UPDATE_RE.search(raw)
         if m and m.group(1)[0].isupper():
-            _emit("CALLS_METHOD", f"{m.group(1)}::update()", lineno, raw.strip())
-            _emit("WRITES_TABLE", m.group(1).lower(), lineno, raw.strip())
+            model = m.group(1)
+            _emit("CALLS_METHOD", f"{model}::update()", lineno, raw.strip())
+            # Resolve table name from model class
+            table = _model_to_table(model)
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
             continue
 
-        # ── $model->save() ──
+        # ── $model->save() / $model->delete() ──
         m = MODEL_SAVE_RE.search(raw)
         if m:
-            _emit("CALLS_METHOD", f"{m.group(1)}->save()", lineno, raw.strip())
-            _emit("WRITES_TABLE", m.group(1).lower(), lineno, raw.strip())
+            var = m.group(1)
+            _emit("CALLS_METHOD", f"{var}->save()", lineno, raw.strip())
+            table = _model_to_table(var)
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
+        m = MODEL_DELETE_RE.search(raw)
+        if m:
+            var = m.group(1)
+            _emit("CALLS_METHOD", f"{var}->delete()", lineno, raw.strip())
+            table = _model_to_table(var)
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
             continue
 
         # ── Job dispatching ──

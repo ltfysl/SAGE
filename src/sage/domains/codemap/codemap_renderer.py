@@ -30,12 +30,15 @@ def render_summary(state: dict) -> str:
 
     routes = state.get("routes", [])
     if routes:
-        lines.append(f"Routes/Endpoints ({len(routes)}):")
-        for r in routes[:15]:
-            name = r.get("name", "?")
-            fname = r.get("evidence", {}).get("file", "?").split("/")[-1]
-            line = r.get("evidence", {}).get("line", "?")
-            lines.append(f"  {name} → {fname}:{line}")
+        # Filter to actual HTTP method routes (not middleware/prefix groups)
+        real_routes = [r for r in routes if any(m in str(r.get('name','')).upper() for m in ('GET','POST','PUT','PATCH','DELETE','RESOURCE'))]
+        lines.append(f"Routes/Endpoints: {len(real_routes)} (total declarations: {len(routes)})")
+        if real_routes:
+            for r in real_routes[:8]:
+                name = r.get("name", "?")
+                fname = r.get("evidence", {}).get("file", "?").split("/")[-1]
+                line = r.get("evidence", {}).get("line", "?")
+                lines.append(f"  {name} → {fname}:{line}")
     lines.append("")
 
     services = state.get("services", [])
