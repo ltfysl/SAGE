@@ -308,10 +308,11 @@ def parse_php_file(file_path: str | Path) -> list[dict]:
             for cls in re.findall(r'(?:private|protected|public)\s+(\w+Service|\w+Repository)\s+\$', params):
                 _emit("CONTROLLER_USES_SERVICE", cls, lineno, raw.strip())
 
+
         # ── app(ClassName::class) service container resolution ──
-        m = re.search(r'app\(([A-Z][\w\]+)::class\)', raw)
+        m = re.search(r"app\\(([A-Z][A-Za-z0-9_\\\\]+)::class\\)", raw)
         if m:
-            cls = m.group(1).split('\')[-1]
+            cls = m.group(1).rsplit("\\\\", 1)[-1]
             _emit("CONTROLLER_USES_SERVICE", cls, lineno, raw.strip())
 
         # ── ->service->method() calls ──
