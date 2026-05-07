@@ -1749,6 +1749,64 @@ def specsync_scan_cmd(
         import json
         output.write_text(json.dumps(state.to_dict(), indent=2))
     
+
+
+# -- specsync-link-code
+
+@app.command("specsync-link-code")
+def specsync_link_code_cmd(
+    spec: Path = typer.Option(...,"--spec","-s"),
+    codemap: Path = typer.Option(...,"--codemap","-c"),
+    output: Optional[Path] = typer.Option(None,"--output","-o"),
+):
+    """Link SpecSync requirements to CodeMap files."""
+    from sage.domains.specsync.codemap_linker import load_codemap,build_coverage_report,render_coverage_markdown
+    from sage.domains.specsync.domain import SpecSyncDomain
+    dom=SpecSyncDomain()
+    ops=dom.compile(str(spec))
+    cm=load_codemap(str(codemap))
+    r=build_coverage_report(ops,cm)
+    text=render_coverage_markdown(r)
+    if output:
+        import json
+        output.write_text(json.dumps(r,indent=2))
+    else:
+        console.print(text)
+
+
+# -- specsync-coverage
+
+@app.command("specsync-coverage")
+def specsync_coverage_cmd(
+    spec: Path = typer.Option(...,"--spec","-s"),
+    codemap: Path = typer.Option(...,"--codemap","-c"),
+):
+    """Build coverage report from SpecSync + CodeMap."""
+    from sage.domains.specsync.codemap_linker import load_codemap,build_coverage_report,render_coverage_markdown
+    from sage.domains.specsync.domain import SpecSyncDomain
+    dom=SpecSyncDomain()
+    ops=dom.compile(str(spec))
+    cm=load_codemap(str(codemap))
+    r=build_coverage_report(ops,cm)
+    console.print(render_coverage_markdown(r))
+
+
+# -- specsync-cursor
+
+@app.command("specsync-cursor")
+def specsync_cursor_cmd(
+    spec: Path = typer.Option(...,"--spec","-s"),
+    codemap: Path = typer.Option(...,"--codemap","-c"),
+    task: str = typer.Option("Implement missing acceptance criteria","--task","-t"),
+):
+    """Generate Cursor/agent context from SpecSync + CodeMap."""
+    from sage.domains.specsync.codemap_linker import load_codemap,build_specsync_cursor_context
+    from sage.domains.specsync.domain import SpecSyncDomain
+    dom=SpecSyncDomain()
+    ops=dom.compile(str(spec))
+    cm=load_codemap(str(codemap))
+    ctx=build_specsync_cursor_context(ops,cm,task)
+    console.print(ctx)
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")
