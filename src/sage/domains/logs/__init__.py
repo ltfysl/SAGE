@@ -1,0 +1,1 @@
+# SAGE Incident Lens domain
