@@ -40,7 +40,7 @@ def generate_context(
     files = _search_boosted(ask, task, graph, intent, max_results)
 
     # Build flow
-    flow = _infer_flow(files, data)
+    flow = _infer_flow(files, data, task)
 
     # Build impact
     impact = _infer_impact_section(files, data)
@@ -142,7 +142,16 @@ def _search_boosted(ask, task, graph, intent, max_results):
 
 # ── Flow inference ──
 
-def _infer_flow(files, data):
+def _infer_flow(files, data, task=""):
+    # Try flow builder first
+    try:
+        from sage.domains.codemap.flow_builder import build_flow
+        graph = data.get("graph", {})
+        flow_result = build_flow(task, data, graph)
+        if flow_result.get("steps") and len(flow_result["steps"]) >= 2:
+            return flow_result["steps"]
+    except (ImportError, Exception):
+        pass
     """Infer a likely processing flow from files."""
     steps = []
     file_paths = [f["file"] for f in files]
@@ -220,7 +229,7 @@ def _build_agent_prompt(task, intent, files, flow, impact, tests, max_span):
     lines.append("")
     lines.append("### Likely Flow")
     for s in flow:
-        lines.append(f"- {s['step']}: {s['detail']} ({s.get('file', '')})")
+        lines.append(f"- {s.get('type', s.get('step', '?'))}: {s.get('detail', s.get('label', '?'))} ({s.get('file', '')})")
     lines.append("")
     lines.append("### Constraints")
     lines.append("- Do not modify neural training or Incident Lens.")
@@ -241,8 +250,8 @@ def _short_answer(intent, files, flow):
         return "No strongly relevant files found."
     top = files[0]["file"].split("/")[-1]
     if intent == "bugfix":
-        return f"Likely involves {top} and related service/model files. Check flow: {' → '.join(s['step'] for s in flow[:4])}."
-    return f"Key files found: {top} and {len(files)} others. Flow: {' → '.join(s['step'] for s in flow[:4])}."
+        return f"Likely involves {top} and related service/model files. Check flow: {' → '.join(s.get('type', s.get('step', '?')) for s in flow[:4])}."
+    return f"Key files found: {top} and {len(files)} others. Flow: {' → '.join(s.get('type', s.get('step', '?')) for s in flow[:4])}."
 
 
 # ── Helpers ──
@@ -280,7 +289,7 @@ def _render_markdown(result, max_files, max_ev, max_span):
 
     lines.append("## Likely Flow")
     for s in result["likely_flow"]:
-        lines.append(f"- **{s['step']}**: {s['detail']} ({s.get('file', '')})")
+        lines.append(f"- **{s.get('type', s.get('step', '?'))}**: {s.get('detail', s.get('label', '?'))} ({s.get('file', '')})")
     lines.append("")
 
     if result.get("impact_risks"):
