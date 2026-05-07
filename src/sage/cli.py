@@ -1728,6 +1728,27 @@ def codemap_project_info_cmd(
         console.print(json.dumps(i, indent=2, default=str))
     else:
         console.print("[yellow]No index found")
+  
+
+
+# -- specsync --
+
+@app.command("specsync-scan")
+def specsync_scan_cmd(
+    docs: Path = typer.Option(..., "--docs", "-d"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o"),
+):
+    """Scan requirement docs and build coverage state."""
+    from sage.domains.specsync.domain import SpecSyncDomain
+    dom = SpecSyncDomain()
+    ops = dom.compile(str(docs))
+    state = dom.build_state(ops)
+    text = dom.render(state, fmt="markdown")
+    console.print(text)
+    if output:
+        import json
+        output.write_text(json.dumps(state.to_dict(), indent=2))
+    
 # ── info ─────────────────────────────────────────────────────────
 
 @app.command("info")
