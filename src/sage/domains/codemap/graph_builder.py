@@ -78,6 +78,23 @@ def build_graph_from_ops(ops: list[dict]) -> dict:
             target = _find_symbol_node(nodes, name) or f"symbol:{name}"
             edges.append({"from": file, "to": target, "type": "TESTS_TARGET", "evidence": evidence})
 
+        elif op_type == "CALLS_METHOD" and file and name:
+            # Try to resolve target to a file
+            target = _find_symbol_node(nodes, name) or _find_method_file(nodes, name) or f"symbol:{name}"
+            edges.append({"from": file, "to": target, "type": "CALLS", "evidence": evidence})
+
+        elif op_type == "SERVICE_USES_MODEL" and file and name:
+            target = _find_symbol_node(nodes, name) or f"symbol:{name}"
+            edges.append({"from": file, "to": target, "type": "SERVICE_USES_MODEL", "evidence": evidence})
+
+        elif op_type == "CONTROLLER_USES_SERVICE" and file and name:
+            target = _find_symbol_node(nodes, name) or f"symbol:{name}"
+            edges.append({"from": file, "to": target, "type": "CONTROLLER_USES_SERVICE", "evidence": evidence})
+
+        elif op_type == "DISPATCHES_JOB" and file and name:
+            target = _find_symbol_node(nodes, name) or f"symbol:{name}"
+            edges.append({"from": file, "to": target, "type": "DISPATCHES_JOB", "evidence": evidence})
+
         elif op_type == "DEFINE_API_ENDPOINT" and file and name:
             target = f"route:{name}"
             edges.append({"from": file, "to": target, "type": "DEFINES", "evidence": evidence})
@@ -97,6 +114,28 @@ def _node_type_for_op(op_type: str) -> str:
         "DEFINE_MODULE": "module", "DEFINE_JOB": "job",
     }
     return m.get(op_type, "symbol")
+
+
+
+def _find_method_file(nodes: dict, name: str) -> str | None:
+    """Find a file node that defines a method matching the call."""
+    # name like 'CourseProgress::update()' or '$this->progressService->commit()'
+    # Try to extract class/service name
+    import re
+    cls = None
+    m = re.match(r'([\w\]+)::', name)
+    if m: cls = m.group(1)
+    m2 = re.match(r'\->(\w+)->', name)
+    if m2:
+        svc = m2.group(1)
+        for key in nodes:
+            if key.startswith('symbol:') and svc.lower() in key.lower():
+                return key
+    if cls:
+        for key in nodes:
+            if key.startswith('symbol:') and cls.lower() in key.lower():
+                return key
+    return None
 
 
 def _find_symbol_node(nodes: dict, name: str) -> str | None:

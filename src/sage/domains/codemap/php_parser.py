@@ -344,6 +344,18 @@ def parse_php_file(file_path: str | Path) -> list[dict]:
             _emit("SERVICE_USES_MODEL", model, lineno, raw.strip())
             continue
 
+        # ── Model query/where/find/all → READS_TABLE ──
+        m = re.search(r'(\w+)::(?:query|where|find|all)\s*\(', raw)
+        if m and m.group(1)[0].isupper():
+            model = m.group(1)
+            table = _model_to_table(model)
+            _emit("READS_TABLE", table, lineno, raw.strip())
+        m = re.search(r'(\w+)::where\([^)]+\)\s*->\s*update\s*\(', raw)
+        if m and m.group(1)[0].isupper():
+            model = m.group(1)
+            table = _model_to_table(model)
+            _emit("WRITES_TABLE", table, lineno, raw.strip())
+
         # ── $model->save() / $model->delete() ──
         m = MODEL_SAVE_RE.search(raw)
         if m:
