@@ -8,6 +8,7 @@ def build_flow(task: str, codemap: dict, graph: dict) -> dict:
     edges = graph.get("edges", [])
     routes = codemap.get("routes", [])
     files = codemap.get("files", {})
+    symbols = codemap.get("symbols", {})
 
     steps = []
     seen_files = set()
@@ -29,7 +30,7 @@ def build_flow(task: str, codemap: dict, graph: dict) -> dict:
         dst = e.get("to", "")
         if route_file and src == route_file:
             if "Controller" in dst or "controller" in dst.lower():
-                controller_file = _resolve_file(dst, files)
+                controller_file = _resolve_file(dst, files, symbols)
                 steps.append({"type": "controller", "label": _basename(dst), "file": controller_file or dst})
                 if controller_file:
                     seen_files.add(controller_file)
@@ -44,7 +45,7 @@ def build_flow(task: str, codemap: dict, graph: dict) -> dict:
             # Accept ALL CONTROLLER_USES_SERVICE edges and common runtime class patterns
             is_runtime = True  # always follow edges from controller
             if etype in ("CONTROLLER_USES_SERVICE", "CALLS", "IMPORTS", "USES_CLASS"):
-                service_file = _resolve_file(dst, files)
+                service_file = _resolve_file(dst, files, symbols)
                 steps.append({"type": "service", "label": _basename(dst), "file": service_file or dst})
                 if service_file:
                     seen_files.add(service_file)
@@ -57,7 +58,7 @@ def build_flow(task: str, codemap: dict, graph: dict) -> dict:
         if service_file and src == service_file:
             etype = e.get("type", "")
             if etype in ("SERVICE_USES_MODEL", "CALLS", "IMPORTS") and "Model" in dst or "model" in dst.lower():
-                model_file = _resolve_file(dst, files)
+                model_file = _resolve_file(dst, files, symbols)
                 steps.append({"type": "model", "label": _basename(dst), "file": model_file or dst})
                 if model_file:
                     seen_files.add(model_file)
@@ -112,7 +113,14 @@ def _basename(path: str) -> str:
     return path.split("/")[-1] if "/" in path else path
 
 
-def _resolve_file(target: str, files: dict) -> str | None:
+def _resolve_file(target: str, files: dict, symbols: dict = None) -> str | None:
+    """Resolve a symbol or path to an actual file in the codemap.
+
+    Args:
+        target: Symbol reference (e.g., 'symbol:App\\Classes\\...') or file path.
+        files: Codemap files dict (path → list of ops).
+        symbols: Codemap symbols dict (symbol_name → list of ops that define it).
+    """
     """Resolve a symbol or path to an actual file in the codemap."""
     # Direct match
     if target in files:
@@ -136,6 +144,17 @@ def _resolve_file(target: str, files: dict) -> str | None:
             for op in ops:
                 if op.get("name", "").lower() == basename.lower() and op.get("op", "").startswith("DEFINE_"):
                     return fp
+    # Check global symbols dict
+    if symbols and target.startswith("symbol:"):
+        sym = target.replace("symbol:", "")
+        basename = sym.split(chr(92))[-1]
+        if basename in symbols:
+            for op in symbols[basename]:
+                if op.get("op", "").startswith("DEFINE_"):
+                    f = op.get("evidence", {}).get("file") or op.get("file", "")
+                    if f:
+                        return f
+
     # Partial path match
     for fp in files:
         if fp.endswith("/" + target) or target in fp:
