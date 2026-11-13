@@ -18,7 +18,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = Path(__file__).resolve().parent / "data" / "opspulse.db"
-LOG_SOURCES = sorted((REPO_ROOT / "data" / "samples").glob("*.log"))
+TMP_DB_PATH = DB_PATH.with_suffix(".tmp.db")
 MEETING_NOTES = REPO_ROOT / "data" / "samples" / "project_memory" / "meetings" / "weekly_sync.md"
 BUCKET_MINUTES = 5
 OPEN_WINDOW_MINUTES = 30  # last-seen within this window of log end => open
@@ -217,7 +217,10 @@ def fetch_deploys(limit: int = 25) -> list[dict]:
 
 def ingest() -> dict:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    # Build into a temp file and swap atomically: readers never see a
+    # half-written DB, and a failed refresh keeps the previous snapshot.
+    TMP_DB_PATH.unlink(missing_ok=True)
+    conn = sqlite3.connect(TMP_DB_PATH)
     c = conn.cursor()
     c.executescript(
         """
@@ -249,9 +252,12 @@ def ingest() -> dict:
         """
     )
 
+    # Re-glob each run: files dropped in later show up, removed files don't
+    # crash the refresh.
+    log_sources = sorted((REPO_ROOT / "data" / "samples").glob("*.log"))
     owners = load_recorded_owners()
     all_blocks: list[dict] = []
-    for path in LOG_SOURCES:
+    for path in log_sources:
         all_blocks.extend(parse_log_file(path))
     all_blocks.sort(key=lambda b: b["ts"])
 
@@ -299,7 +305,7 @@ def ingest() -> dict:
         resolved = bool(matched_recoveries) and (end_dt - last_dt) > timedelta(minutes=OPEN_WINDOW_MINUTES)
         status = "resolved" if resolved else "open"
 
-        tenants = sorted({json.loads(m.group(0))["tenant"] for e in evs if (m := re.search(r'\{[^}]*"tenant"[^}]*\}', e["raw_block"]))})
+        tenants = sorted({m.group(1) for e in evs if (m := re.search(r'"tenant":"([^"]+)"', e["raw_block"]))})
         endpoints = sorted({m.group(1) for e in evs if (m := re.search(r'"path":"([^"]+)"', e["raw_block"]))})
 
         short = evs[0]["message"]
@@ -359,13 +365,14 @@ def ingest() -> dict:
 
     c.execute("INSERT INTO meta VALUES (?,?)", ("last_refresh", datetime.utcnow().isoformat() + "Z"))
     c.execute("INSERT INTO meta VALUES (?,?)", ("log_end", log_end or ""))
-    c.execute("INSERT INTO meta VALUES (?,?)", ("sources", json.dumps([p.name for p in LOG_SOURCES])))
+    c.execute("INSERT INTO meta VALUES (?,?)", ("sources", json.dumps([p.name for p in log_sources])))
     conn.commit()
+    conn.close()
+    TMP_DB_PATH.replace(DB_PATH)
     summary = {
         "events": len(all_blocks), "incidents": len(incidents),
         "open": sum(1 for i in incidents if i["status"] == "open"),
     }
-    conn.close()
     return summary
 
 
