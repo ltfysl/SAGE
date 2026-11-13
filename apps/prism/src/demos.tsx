@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle, CheckCircle, Database, Download, Shield, Upload,
@@ -49,23 +49,42 @@ export function ButtonsPreview() {
 
 export function DropzonePreview() {
   const [over, setOver] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-3">
       <div
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}
         onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); setOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) setFile(f);
+        }}
+        onClick={() => fileRef.current?.click()}
         className={`glass-card border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
           over ? "border-cyan-400 bg-cyan-500/10 scale-[1.02]" : "border-white/10 hover:border-cyan-500/30 hover:bg-white/[0.02]"
         }`}
       >
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".log,.txt"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) setFile(f);
+          }}
+        />
         <motion.div animate={over ? { scale: 1.1 } : { scale: 1 }}>
           <Upload size={36} className="mx-auto mb-3 text-cyan-400" />
         </motion.div>
         <p className="text-base font-medium mb-1">Drop a Laravel log file here</p>
         <p className="text-xs text-white/40">or click to browse • .log / .txt • Max 50MB</p>
+        {file && <p className="mt-3 text-xs text-cyan-400">{file.name} ({(file.size / 1024).toFixed(0)} KB)</p>}
       </div>
-      <p className="text-[11px] text-white/25 text-center">Interactive — drag anything over it.</p>
+      <p className="text-[11px] text-white/25 text-center">Interactive — drag anything over it or click to browse.</p>
     </div>
   );
 }
