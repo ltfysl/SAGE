@@ -44,6 +44,26 @@ function Radio2({ initial = false }: { initial?: boolean }) {
   );
 }
 
+function RadioGroup({ options }: { options: string[] }) {
+  const [v, setV] = useState(0);
+  return (
+    <div className="space-y-2 text-sm text-ink/70">
+      {options.map((o, i) => (
+        <label key={o} className="flex items-center gap-2 cursor-pointer" onClick={() => setV(i)}>
+          <span
+            className={`w-[18px] h-[18px] rounded-full border flex items-center justify-center transition-all ${
+              i === v ? "border-cyan-500" : "border-ink/25"
+            }`}
+          >
+            {i === v && <span className="w-2 h-2 rounded-full bg-cyan-400" />}
+          </span>
+          {o}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function Slider({ initial = 60 }: { initial?: number }) {
   const [v, setV] = useState(initial);
   return (
@@ -254,10 +274,7 @@ export const formsGroups: LibGroup[] = [
   <label className="flex items-center gap-2"><span className="w-[18px] h-[18px] rounded-full border border-cyan-500 flex items-center justify-center"><span className="w-2 h-2 rounded-full bg-cyan-400" /></span> All severities</label>
   <label className="flex items-center gap-2"><span className="w-[18px] h-[18px] rounded-full border border-ink/25" /> Errors only</label>
 </div>`,
-        <div className="space-y-2 text-sm text-ink/70">
-          <label className="flex items-center gap-2"><Radio2 initial /> All severities</label>
-          <label className="flex items-center gap-2"><Radio2 /> Errors only</label>
-        </div>
+        <RadioGroup options={["All severities", "Errors only"]} />
       ),
       li("Switch · on", `<button className="w-10 h-[22px] rounded-full bg-cyan-500 relative"><span className="absolute top-[3px] left-[22px] w-4 h-4 rounded-full bg-white" /></button>`, <Switch />),
       li("Switch · off", `<button className="w-10 h-[22px] rounded-full bg-ink/15 relative"><span className="absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white" /></button>`, <Switch on={false} />),
@@ -292,8 +309,8 @@ export const formsGroups: LibGroup[] = [
     title: "Sliders & rating",
     items: [
       li("Slider", `<input type="range" className="w-full accent-cyan-400 h-1.5 bg-ink/10 rounded-full appearance-none cursor-pointer" />`, <Slider />),
-      li("Slider · low", `<input type="range" value={20} className="w-full accent-cyan-400 h-1.5 bg-ink/10 rounded-full appearance-none" />`, <Slider initial={20} />),
-      li("Slider · high", `<input type="range" value={90} className="w-full accent-violet-400 h-1.5 bg-ink/10 rounded-full appearance-none" />`, <Slider initial={90} />),
+      li("Slider · low", `<input type="range" defaultValue={20} className="w-full accent-cyan-400 h-1.5 bg-ink/10 rounded-full appearance-none" />`, <Slider initial={20} />),
+      li("Slider · high", `<input type="range" defaultValue={90} className="w-full accent-violet-400 h-1.5 bg-ink/10 rounded-full appearance-none" />`, <Slider initial={90} />),
       li(
         "Slider · labelled",
         `<div className="w-full">
