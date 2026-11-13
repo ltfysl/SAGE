@@ -305,7 +305,14 @@ def ingest() -> dict:
         resolved = bool(matched_recoveries) and (end_dt - last_dt) > timedelta(minutes=OPEN_WINDOW_MINUTES)
         status = "resolved" if resolved else "open"
 
-        tenants = sorted({m.group(1) for e in evs if (m := re.search(r'"tenant":"([^"]+)"', e["raw_block"]))})
+        tenants = set()
+        for e in evs:
+            for m in re.finditer(r'"tenant"\s*:\s*"((?:[^"\\]|\\.)*)"', e["raw_block"]):
+                try:
+                    tenants.add(json.loads(f'"{m.group(1)}"'))
+                except ValueError:
+                    tenants.add(m.group(1))
+        tenants = sorted(tenants)
         endpoints = sorted({m.group(1) for e in evs if (m := re.search(r'"path":"([^"]+)"', e["raw_block"]))})
 
         short = evs[0]["message"]
