@@ -5,6 +5,8 @@ export default {
     extend: {
       colors: {
         dark: { 50: "#f8fafc", 900: "#0a0a0f", 950: "#050508" },
+        ink: "rgb(var(--ink) / <alpha-value>)",
+        bgc: "rgb(var(--bg-rgb) / <alpha-value>)",
         accent: {
           cyan: "#22d3ee",
           blue: "#3b82f6",

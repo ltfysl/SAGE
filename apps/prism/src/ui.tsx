@@ -23,7 +23,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
         setState(ok ? "copied" : "failed");
         setTimeout(() => setState("idle"), 1600);
       }}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/10 text-[11px] text-white/50 hover:border-cyan-500/30 hover:text-cyan-300 transition-colors"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-ink/[0.04] border border-ink/10 text-[11px] text-ink/50 hover:border-cyan-500/30 hover:text-cyan-300 transition-colors"
     >
       {state === "copied" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
       {state === "copied" ? "Copied" : state === "failed" ? "Failed" : label}
@@ -50,7 +50,7 @@ export function SectionHead({
     >
       <div className="text-xs font-mono text-cyan-400/70 mb-3 tracking-widest uppercase">{index}</div>
       <h2 className="text-3xl md:text-4xl font-bold tracking-tight">{title}</h2>
-      {children && <p className="mt-3 text-white/40 max-w-2xl">{children}</p>}
+      {children && <p className="mt-3 text-ink/40 max-w-2xl">{children}</p>}
     </motion.div>
   );
 }
@@ -77,10 +77,10 @@ export function DemoCard({
       transition={{ duration: 0.5 }}
       className={`glass-card rounded-2xl overflow-hidden ${wide ? "md:col-span-2" : ""}`}
     >
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-ink/5">
         <div>
           <div className="text-sm font-semibold">{title}</div>
-          {description && <div className="text-[11px] text-white/35 mt-0.5">{description}</div>}
+          {description && <div className="text-[11px] text-ink/35 mt-0.5">{description}</div>}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -88,7 +88,7 @@ export function DemoCard({
             className={`px-2.5 py-1 rounded-md text-[11px] border transition-colors ${
               showCode
                 ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-300"
-                : "bg-white/[0.04] border-white/10 text-white/50 hover:text-cyan-300"
+                : "bg-ink/[0.04] border-ink/10 text-ink/50 hover:text-cyan-300"
             }`}
           >
             {showCode ? "Preview" : "Code"}
@@ -104,6 +104,35 @@ export function DemoCard({
         <div className="p-6">{preview}</div>
       )}
     </motion.div>
+  );
+}
+
+export function LibCard({ name, code, children }: { name: string; code: string; children: ReactNode }) {
+  const [showCode, setShowCode] = useState(false);
+  return (
+    <div className="rounded-xl border border-ink/10 bg-ink/[0.02] overflow-hidden hover:border-ink/20 transition-colors">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-ink/5">
+        <span className="text-[11px] font-medium text-ink/60 truncate">{name}</span>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setShowCode((s) => !s)}
+            className={`px-1.5 py-0.5 rounded text-[10px] border transition-colors ${
+              showCode ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-300" : "border-transparent text-ink/40 hover:text-cyan-300"
+            }`}
+          >
+            {showCode ? "UI" : "</>"}
+          </button>
+          <CopyButton text={code} />
+        </div>
+      </div>
+      {showCode ? (
+        <pre className="code-block m-0 rounded-none border-0 text-[10px] leading-relaxed max-h-40 overflow-auto whitespace-pre-wrap">
+          <code>{code}</code>
+        </pre>
+      ) : (
+        <div className="p-4 flex items-center justify-center min-h-[72px]">{children}</div>
+      )}
+    </div>
   );
 }
 
@@ -135,10 +164,10 @@ export function Swatch({ name, value, className, note }: { name: string; value: 
         </span>
       </div>
       <div className="px-3 py-2.5">
-        <div className="text-xs font-medium text-white/80">{name}</div>
-        <div className="text-[10px] font-mono text-white/35 mt-0.5">{value}</div>
+        <div className="text-xs font-medium text-ink/80">{name}</div>
+        <div className="text-[10px] font-mono text-ink/35 mt-0.5">{value}</div>
         {className && <div className="text-[10px] font-mono text-cyan-400/50 mt-0.5">{className}</div>}
-        {note && <div className="text-[10px] text-white/30 mt-1">{note}</div>}
+        {note && <div className="text-[10px] text-ink/30 mt-1">{note}</div>}
       </div>
     </button>
   );

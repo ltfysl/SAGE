@@ -28,7 +28,7 @@ function MiniDashboard() {
           { label: "Duration", value: "6m 42s", cls: "" },
         ].map((c) => (
           <div key={c.label} className={`glass-card rounded-lg p-2.5 ${c.cls}`}>
-            <div className="text-[8px] text-white/40 mb-1">{c.label}</div>
+            <div className="text-[8px] text-ink/40 mb-1">{c.label}</div>
             <div className="text-xs font-semibold font-mono truncate">{c.value}</div>
           </div>
         ))}
@@ -39,10 +39,10 @@ function MiniDashboard() {
         </div>
         <div className="grid grid-cols-4 gap-2">
           {cats.map((c) => (
-            <div key={c.name} className="bg-white/[0.03] rounded-md p-2 border border-white/5">
+            <div key={c.name} className="bg-ink/[0.03] rounded-md p-2 border border-ink/5">
               <div className="flex items-center gap-1 mb-1">
                 <c.icon size={9} className="text-cyan-400" />
-                <span className="text-[7px] text-white/50 truncate">{c.name}</span>
+                <span className="text-[7px] text-ink/50 truncate">{c.name}</span>
               </div>
               <div className="text-sm font-bold font-mono">{c.n}</div>
             </div>
@@ -54,10 +54,10 @@ function MiniDashboard() {
           <Terminal size={10} className="text-cyan-400" /> Top Exceptions
         </div>
         {["Illuminate\\Database\\QueryException", "Swift_TransportException", "Symfony\\Component\\HttpKernel"].map((e, i) => (
-          <div key={e} className="flex items-center gap-2 bg-white/[0.02] rounded p-1.5 mb-1 border border-white/5">
-            <span className="text-[8px] text-white/30 w-3">{i + 1}</span>
+          <div key={e} className="flex items-center gap-2 bg-ink/[0.02] rounded p-1.5 mb-1 border border-ink/5">
+            <span className="text-[8px] text-ink/30 w-3">{i + 1}</span>
             <span className="text-[8px] font-mono text-cyan-300 truncate flex-1">{e}</span>
-            <span className="text-[8px] font-mono font-bold text-white/60">{[19, 11, 7][i]}</span>
+            <span className="text-[8px] font-mono font-bold text-ink/60">{[19, 11, 7][i]}</span>
           </div>
         ))}
       </div>
@@ -67,12 +67,12 @@ function MiniDashboard() {
 
 function BrowserChrome() {
   return (
-    <div className="flex items-center gap-2 px-4 h-9 border-b border-white/5 bg-black/40 shrink-0">
+    <div className="flex items-center gap-2 px-4 h-9 border-b border-ink/5 bg-black/40 shrink-0">
       <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
       <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
-      <div className="ml-3 flex-1 h-5 rounded-md bg-white/[0.04] border border-white/5 flex items-center px-2">
-        <span className="text-[9px] font-mono text-white/30">localhost:3000</span>
+      <div className="ml-3 flex-1 h-5 rounded-md bg-ink/[0.04] border border-ink/5 flex items-center px-2">
+        <span className="text-[9px] font-mono text-ink/30">localhost:3000</span>
       </div>
     </div>
   );
@@ -112,7 +112,7 @@ export function Showcase() {
           <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
             Every pixel comes from <span className="gradient-text">a real app</span>
           </h2>
-          <p className="mt-4 text-white/40 max-w-xl mx-auto text-sm md:text-base">
+          <p className="mt-4 text-ink/40 max-w-xl mx-auto text-sm md:text-base">
             Prism refracts the design system behind SAGE Incident Lens — the exact components, tokens and motion shipped in the repo.
           </p>
         </motion.div>
@@ -137,7 +137,7 @@ export function Showcase() {
               className="glass-card rounded-xl px-6 py-4 text-right"
             >
               <div className="text-3xl font-bold font-mono gradient-text-cyan">{c.k}</div>
-              <div className="text-[11px] text-white/40 uppercase tracking-widest">{c.v}</div>
+              <div className="text-[11px] text-ink/40 uppercase tracking-widest">{c.v}</div>
             </motion.div>
           ))}
         </motion.div>
@@ -157,10 +157,10 @@ export function SpecMarquee() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const x = useTransform(scrollYProgress, [0, 1], ["4%", "-42%"]);
   return (
-    <div ref={ref} className="py-16 overflow-hidden border-y border-white/5 bg-black/20">
+    <div ref={ref} className="py-16 overflow-hidden border-y border-ink/5 bg-black/20">
       <motion.div style={{ x }} className="flex whitespace-nowrap gap-12 w-max">
         {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
-          <span key={i} className="text-sm font-mono text-white/25 flex items-center gap-12">
+          <span key={i} className="text-sm font-mono text-ink/25 flex items-center gap-12">
             {item}
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/40" />
           </span>
