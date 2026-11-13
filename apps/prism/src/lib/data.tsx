@@ -295,12 +295,12 @@ export const dataGroups: LibGroup[] = [
       ),
       li(
         "File row",
-        `<div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-ink/10 bg-ink/[0.03]">
+        `<div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-ink/10 bg-ink/[0.03]">
   <FileCode size={14} className="text-cyan-400" />
   <span className="text-xs font-mono text-ink/80 flex-1">laravel-2026-11-13.log</span>
   <span className="text-[10px] text-ink/30">4.1 MB</span>
 </div>`,
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-ink/10 bg-ink/[0.03]">
+        <div className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-ink/10 bg-ink/[0.03]">
           <FileCode size={14} className="text-cyan-400" />
           <span className="text-xs font-mono text-ink/80 flex-1">laravel-2026-11-13.log</span>
           <span className="text-[10px] text-ink/30">4.1 MB</span>

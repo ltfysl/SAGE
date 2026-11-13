@@ -102,42 +102,42 @@ export const feedbackGroups: LibGroup[] = [
       ...progressColors.map(([n, cls]) =>
         li(
           `Progress bar · ${n}`,
-          `<div className="h-1.5 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-2/3 rounded-full ${cls}" /></div>`,
-          <div className="h-1.5 rounded-full bg-ink/10 overflow-hidden"><div className={`h-full w-2/3 rounded-full ${cls}`} /></div>
+          `<div className="w-full h-1.5 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-2/3 rounded-full ${cls}" /></div>`,
+          <div className="w-full h-1.5 rounded-full bg-ink/10 overflow-hidden"><div className={`h-full w-2/3 rounded-full ${cls}`} /></div>
         )
       ),
       li(
         "Progress · labelled",
-        `<div>
+        `<div className="w-full">
   <div className="flex justify-between text-xs mb-1.5"><span className="text-ink/60">Compiling ops…</span><span className="font-mono text-cyan-400">67%</span></div>
   <div className="h-1.5 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-2/3 rounded-full bg-cyan-400" /></div>
 </div>`,
-        <div>
+        <div className="w-full">
           <div className="flex justify-between text-xs mb-1.5"><span className="text-ink/60">Compiling ops…</span><span className="font-mono text-cyan-400">67%</span></div>
           <div className="h-1.5 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-2/3 rounded-full bg-cyan-400" /></div>
         </div>
       ),
       li(
         "Progress · segmented",
-        `<div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+        `<div className="w-full flex h-1.5 rounded-full overflow-hidden gap-px">
   <div className="w-1/2 bg-emerald-400" /><div className="w-1/4 bg-amber-400" /><div className="w-1/6 bg-rose-400" /><div className="flex-1 bg-ink/10" />
 </div>`,
-        <div className="flex h-1.5 rounded-full overflow-hidden gap-px">
+        <div className="w-full flex h-1.5 rounded-full overflow-hidden gap-px">
           <div className="w-1/2 bg-emerald-400" /><div className="w-1/4 bg-amber-400" /><div className="w-1/6 bg-rose-400" /><div className="flex-1 bg-ink/10" />
         </div>
       ),
       li(
         "Progress · striped",
-        `<div className="h-2 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-3/4 rounded-full bg-[repeating-linear-gradient(45deg,#22d3ee_0_8px,rgba(34,211,238,0.4)_8px_16px)]" /></div>`,
-        <div className="h-2 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-3/4 rounded-full bg-[repeating-linear-gradient(45deg,#22d3ee_0_8px,rgba(34,211,238,0.4)_8px_16px)]" /></div>
+        `<div className="w-full h-2 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-3/4 rounded-full bg-[repeating-linear-gradient(45deg,#22d3ee_0_8px,rgba(34,211,238,0.4)_8px_16px)]" /></div>`,
+        <div className="w-full h-2 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-3/4 rounded-full bg-[repeating-linear-gradient(45deg,#22d3ee_0_8px,rgba(34,211,238,0.4)_8px_16px)]" /></div>
       ),
       li(
         "Meter · capacity",
-        `<div>
+        `<div className="w-full">
   <div className="flex justify-between text-[11px] mb-1"><span className="text-ink/50">Storage</span><span className="text-ink/70">38 / 50 GB</span></div>
   <div className="h-2 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-3/4 rounded-full bg-gradient-to-r from-cyan-400 to-violet-400" /></div>
 </div>`,
-        <div>
+        <div className="w-full">
           <div className="flex justify-between text-[11px] mb-1"><span className="text-ink/50">Storage</span><span className="text-ink/70">38 / 50 GB</span></div>
           <div className="h-2 rounded-full bg-ink/10 overflow-hidden"><div className="h-full w-3/4 rounded-full bg-gradient-to-r from-cyan-400 to-violet-400" /></div>
         </div>
@@ -155,11 +155,11 @@ export const feedbackGroups: LibGroup[] = [
       ),
       li(
         "Steps progress",
-        `<div className="flex items-center gap-1.5">
+        `<div className="w-full flex items-center gap-1.5">
   <div className="h-1 flex-1 rounded-full bg-cyan-400" /><div className="h-1 flex-1 rounded-full bg-cyan-400" />
   <div className="h-1 flex-1 rounded-full bg-cyan-400/40" /><div className="h-1 flex-1 rounded-full bg-ink/10" />
 </div>`,
-        <div className="flex items-center gap-1.5">
+        <div className="w-full flex items-center gap-1.5">
           <div className="h-1 flex-1 rounded-full bg-cyan-400" /><div className="h-1 flex-1 rounded-full bg-cyan-400" />
           <div className="h-1 flex-1 rounded-full bg-cyan-400/40" /><div className="h-1 flex-1 rounded-full bg-ink/10" />
         </div>
@@ -192,16 +192,16 @@ export const feedbackGroups: LibGroup[] = [
         `<span className="inline-flex items-end gap-0.5 h-4">{[0,1,2,3].map(i => <span key={i} className="w-1 bg-cyan-400 animate-pulse" style={{ height: \`\${[40,100,70,90][i]}%\`, animationDelay: \`\${i * 0.12}s\` }} />)}</span>`,
         <span className="inline-flex items-end gap-0.5 h-4">{[0, 1, 2, 3].map((i) => <span key={i} className="w-1 bg-cyan-400 animate-pulse" style={{ height: `${[40, 100, 70, 90][i]}%`, animationDelay: `${i * 0.12}s` }} />)}</span>
       ),
-      li("Skeleton · line", `<div className="h-3 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>`, <div className="h-3 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>),
+      li("Skeleton · line", `<div className="w-full h-3 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>`, <div className="w-full h-3 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>),
       li("Skeleton · avatar+lines",
-        `<div className="flex gap-3 items-center">
+        `<div className="w-full flex gap-3 items-center">
   <div className="w-10 h-10 rounded-full bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
   <div className="flex-1 space-y-2">
     <div className="h-2.5 w-2/3 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
     <div className="h-2.5 w-1/2 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
   </div>
 </div>`,
-        <div className="flex gap-3 items-center">
+        <div className="w-full flex gap-3 items-center">
           <div className="w-10 h-10 rounded-full bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
           <div className="flex-1 space-y-2">
             <div className="h-2.5 w-2/3 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
@@ -210,11 +210,11 @@ export const feedbackGroups: LibGroup[] = [
         </div>
       ),
       li("Skeleton · card",
-        `<div className="glass-card p-4 space-y-3">
+        `<div className="w-full glass-card p-4 space-y-3">
   <div className="h-24 rounded-lg bg-ink/5 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
   <div className="h-3 w-3/4 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
 </div>`,
-        <div className="glass-card p-4 space-y-3">
+        <div className="w-full glass-card p-4 space-y-3">
           <div className="h-24 rounded-lg bg-ink/5 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
           <div className="h-3 w-3/4 rounded bg-ink/10 relative overflow-hidden"><div className="absolute inset-0 animate-shimmer" /></div>
         </div>
