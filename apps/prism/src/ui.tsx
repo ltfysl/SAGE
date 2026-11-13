@@ -3,28 +3,30 @@ import { motion } from "framer-motion";
 import { Check, Copy } from "lucide-react";
 
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   return (
     <button
       onClick={async (e) => {
         e.stopPropagation();
+        let ok = false;
         try {
           await navigator.clipboard.writeText(text);
+          ok = true;
         } catch {
           const ta = document.createElement("textarea");
           ta.value = text;
           document.body.appendChild(ta);
           ta.select();
-          document.execCommand("copy");
+          ok = document.execCommand("copy");
           document.body.removeChild(ta);
         }
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1600);
+        setState(ok ? "copied" : "failed");
+        setTimeout(() => setState("idle"), 1600);
       }}
       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/10 text-[11px] text-white/50 hover:border-cyan-500/30 hover:text-cyan-300 transition-colors"
     >
-      {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-      {copied ? "Copied" : label}
+      {state === "copied" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+      {state === "copied" ? "Copied" : state === "failed" ? "Failed" : label}
     </button>
   );
 }
