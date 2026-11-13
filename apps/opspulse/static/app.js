@@ -41,9 +41,9 @@ function stackedBars(el, labels, errors, warnings, infos) {
   labels.forEach((l, i) => {
     const e = errors[i], w = warnings[i], n = infos[i];
     const yE = y(e), yW = y(e + w), yN = y(e + w + n);
-    out += `<rect x="${x(i)}" y="${yN}" width="${bw}" height="${(H - P.b) - yN}" fill="rgba(49,124,255,.30)"/>`;
-    out += `<rect x="${x(i)}" y="${yW}" width="${bw}" height="${yN - yW}" fill="rgba(183,119,0,.55)"/>`;
-    out += `<rect x="${x(i)}" y="${yE}" width="${bw}" height="${yW - yE}" fill="#D92D20"/>`;
+    out += `<rect x="${x(i)}" y="${yN}" width="${bw}" height="${yW - yN}" fill="rgba(49,124,255,.30)"/>`;
+    out += `<rect x="${x(i)}" y="${yW}" width="${bw}" height="${yE - yW}" fill="rgba(183,119,0,.55)"/>`;
+    out += `<rect x="${x(i)}" y="${yE}" width="${bw}" height="${(H - P.b) - yE}" fill="#D92D20"/>`;
   });
   const xl = labels.filter((_, i) => i % Math.ceil(labels.length / 6) === 0)
     .map((l) => `<text x="${x(labels.indexOf(l)) + bw / 2}" y="${H - 4}" text-anchor="middle" class="axis-text">${hm(l)}</text>`).join("");
