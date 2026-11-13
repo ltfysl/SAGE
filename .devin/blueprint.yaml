@@ -1,0 +1,19 @@
+# Devin environment blueprint for ltfysl/SAGE.
+# Commands run from the repo root. Node is provided by ~/.nvm; load it before npm.
+maintenance: |
+  . "$HOME/.nvm/nvm.sh"
+  (cd apps/prism && npm install)
+# Reference info for agent
+knowledge:
+  - name: build
+    contents: |
+      # (cd apps/prism && npm run build)  — tsc -b && vite build
+      # (cd apps/sage-incident-lens-web && npm install && npm run build) — Next.js
+  - name: dev
+    contents: |
+      # apps/prism: npm run dev (vite, port 5173) / npm run preview serves dist/
+      # apps/sage-incident-lens-web: npm run dev (next, port 3000)
+  - name: notes
+    contents: |
+      # Node lives in ~/.nvm (v24): run `. "$HOME/.nvm/nvm.sh"` before npm.
+      # SAGE python CLI: export PYTHONPATH=src; python3 -m sage.cli --help
