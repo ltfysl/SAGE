@@ -63,6 +63,14 @@ export function DropzonePreview() {
           if (f) setFile(f);
         }}
         onClick={() => fileRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            fileRef.current?.click();
+          }
+        }}
         className={`glass-card border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
           over ? "border-cyan-400 bg-cyan-500/10 scale-[1.02]" : "border-white/10 hover:border-cyan-500/30 hover:bg-white/[0.02]"
         }`}
