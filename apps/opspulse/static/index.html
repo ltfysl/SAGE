@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpsPulse — SAGE ops dashboard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M1 9h4l2-5 3 9 2-5 1 1h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    <h1>OpsPulse</h1>
+    <span class="tag">live</span>
+  </div>
+  <div class="topbar-meta">
+    <span id="sources"></span>
+    <span class="dot"></span>
+    <span>refreshed <span id="last-refresh" class="mono">—</span></span>
+  </div>
+</header>
+
+<main>
+  <section class="cards" id="cards">
+    <div class="card"><div class="card-label">Open incidents</div><div class="card-value" id="stat-open">—</div><div class="card-sub" id="stat-open-sub"></div></div>
+    <div class="card"><div class="card-label">Error rate</div><div class="card-value" id="stat-rate">—</div><div class="card-sub">last 30 min of log data</div></div>
+    <div class="card"><div class="card-label">Recent deploys</div><div class="card-value" id="stat-deploys">—</div><div class="card-sub">commits on main</div></div>
+    <div class="card"><div class="card-label">Events ingested</div><div class="card-value" id="stat-events">—</div><div class="card-sub" id="stat-window"></div></div>
+  </section>
+
+  <section class="charts">
+    <div class="panel">
+      <h2>Error rate <span class="muted">(% of events, 5-min buckets)</span></h2>
+      <svg id="chart-rate" viewBox="0 0 640 160" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="panel">
+      <h2>Event volume <span class="muted">(errors + warnings + info)</span></h2>
+      <svg id="chart-vol" viewBox="0 0 640 160" preserveAspectRatio="none"></svg>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel incidents-panel">
+      <h2>Incidents</h2>
+      <div class="filters">
+        <button class="chip active" data-f="open">Open</button>
+        <button class="chip" data-f="all">All</button>
+        <button class="chip" data-f="resolved">Resolved</button>
+      </div>
+      <div id="incidents"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Recent deploys</h2>
+      <table class="table" id="deploys">
+        <thead><tr><th>Version</th><th>Change</th><th>By</th><th>Files</th><th>When</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Data: SAGE repo — <code>data/samples/*.log</code>, <code>weekly_sync.md</code>, git history.</span>
+  <a href="https://app.devin.ai/sessions/2dd69ac6c36945cbadf62b4f15a077ad" target="_blank" rel="noopener">Request changes</a>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>
